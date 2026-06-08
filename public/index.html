@@ -1,0 +1,2930 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>小艾 · 数字分身助手</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<!-- Live2D 三件套：顺序固定，版本锁死 -->
+<script src="https://cdn.jsdelivr.net/npm/live2dcubismcore@1.0.2/live2dcubismcore.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
+
+<style>
+/* ─── Reset ─── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* ─── Design Tokens（暖米风格，继承原型）─── */
+:root{
+  --bg:#ece7de;
+  --surface:#ffffff;
+  --surface-warm:#f7f3ef;
+  --surface-deep:#f0ebe3;
+  --text:#2c2417;
+  --text-muted:#7a6e62;
+  --text-faint:#b0a799;
+  --border:#ddd5c8;
+  --border-light:#ede7de;
+  --accent:#c9784a;
+  --accent-hover:#b5673c;
+  --accent-lt:#f3e8de;
+  --accent-dark:#8c4e28;
+  /* 五色状态 */
+  --state-idle:#7a9bb5;
+  --state-listen:#5aab7e;
+  --state-think:#c9784a;
+  --state-speak:#9b6fc9;
+  --state-wake:#e6b84a;
+  --shadow-sm:0 1px 4px rgba(44,36,23,.06);
+  --shadow-md:0 2px 10px rgba(44,36,23,.08);
+  --shadow-lg:0 6px 24px rgba(44,36,23,.12);
+  --shadow-xl:0 12px 40px rgba(44,36,23,.16);
+  --radius-sm:6px;
+  --radius-md:10px;
+  --radius-lg:16px;
+  --radius-xl:24px;
+  --radius-full:9999px;
+  --font-serif:'Playfair Display',Georgia,serif;
+  --font-sans:'DM Sans',system-ui,-apple-system,sans-serif;
+  --font-mono:'JetBrains Mono','SF Mono',Consolas,monospace;
+}
+
+html,body{
+  height:100%;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-sans);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
+
+/* ─── 顶部说明条 ─── */
+.proto-notice{
+  position:fixed;top:0;left:0;right:0;
+  background:rgba(44,36,23,.82);
+  backdrop-filter:blur(10px);
+  color:rgba(255,255,255,.85);
+  font-size:.72rem;
+  text-align:center;
+  padding:6px 16px;
+  z-index:999;
+  letter-spacing:.01em;
+  line-height:1.5;
+}
+.proto-notice strong{color:#e6b84a}
+/* 连接状态指示 */
+.conn-indicator{
+  display:inline-flex;align-items:center;gap:4px;
+  margin-left:8px;font-size:.68rem;
+}
+.conn-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:#e6b84a;
+  transition:background .3s;
+}
+.conn-dot.ok{background:#5aab7e}
+.conn-dot.err{background:#d94f3a}
+
+/* ─── App 窗口 ─── */
+.app-window{
+  width:900px;
+  height:600px;
+  background:var(--bg);
+  border-radius:var(--radius-xl);
+  border:1px solid var(--border);
+  box-shadow:var(--shadow-xl);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  margin-top:28px;
+  position:relative;
+}
+
+/* ─── macOS 标题栏 ─── */
+.titlebar{
+  display:flex;align-items:center;gap:8px;
+  padding:11px 16px 9px;
+  background:var(--surface-warm);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.tl-dots{display:flex;gap:6px}
+.tl-dot{width:12px;height:12px;border-radius:50%;cursor:default}
+.tl-red{background:#ff5f57}
+.tl-yellow{background:#ffbd2e}
+.tl-green{background:#28c840}
+.titlebar-title{
+  flex:1;text-align:center;
+  font-size:.76rem;font-weight:600;
+  color:var(--text-muted);letter-spacing:.02em;
+}
+
+/* ─── 顶部 Topbar ─── */
+.app-topbar{
+  display:flex;align-items:center;
+  padding:0 14px;height:44px;
+  background:var(--surface-warm);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;gap:8px;
+}
+.topbar-logo{
+  font-family:var(--font-serif);
+  font-size:.88rem;font-weight:700;
+  color:var(--accent);letter-spacing:.01em;
+}
+.topbar-spacer{flex:1}
+
+/* 状态药丸 */
+.status-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 11px;border-radius:var(--radius-full);
+  font-size:.7rem;font-weight:600;letter-spacing:.02em;
+  border:1px solid transparent;white-space:nowrap;
+  transition:all .25s ease;
+}
+.status-pill .dot{width:7px;height:7px;border-radius:50%;transition:background .25s}
+
+.pill-idle{background:rgba(122,155,181,.12);color:#3a6a8a;border-color:rgba(122,155,181,.25)}
+.pill-idle .dot{background:var(--state-idle)}
+.pill-listen{background:rgba(90,171,126,.12);color:#1e6a42;border-color:rgba(90,171,126,.25)}
+.pill-listen .dot{background:var(--state-listen);animation:pulse-dot .9s ease-in-out infinite}
+.pill-think{background:rgba(201,120,74,.12);color:var(--accent-dark);border-color:rgba(201,120,74,.25)}
+.pill-think .dot{background:var(--state-think);animation:pulse-dot 1.2s ease-in-out infinite}
+.pill-speak{background:rgba(155,111,201,.12);color:#52288a;border-color:rgba(155,111,201,.25)}
+.pill-speak .dot{background:var(--state-speak);animation:pulse-dot .7s ease-in-out infinite}
+.pill-wake{background:rgba(230,184,74,.15);color:#7a5000;border-color:rgba(230,184,74,.35)}
+.pill-wake .dot{background:var(--state-wake);animation:pulse-dot .45s ease-in-out infinite}
+
+/* 演示状态切换按钮 */
+.demo-bar{
+  display:flex;align-items:center;gap:4px;
+  padding:2px 4px;
+  background:rgba(44,36,23,.05);
+  border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+}
+.demo-label{
+  font-size:.62rem;font-weight:600;
+  color:var(--text-faint);
+  letter-spacing:.06em;text-transform:uppercase;
+  padding:0 4px;
+}
+.demo-btn{
+  width:26px;height:26px;border-radius:4px;
+  border:none;cursor:pointer;
+  font-size:.6rem;font-weight:700;
+  transition:all .15s;
+}
+.demo-btn:hover{transform:scale(1.1)}
+.demo-btn[data-state="idle"]{background:rgba(122,155,181,.25);color:#3a6a8a}
+.demo-btn[data-state="wake"]{background:rgba(230,184,74,.3);color:#7a5000}
+.demo-btn[data-state="listen"]{background:rgba(90,171,126,.25);color:#1e6a42}
+.demo-btn[data-state="think"]{background:rgba(201,120,74,.25);color:var(--accent-dark)}
+.demo-btn[data-state="speak"]{background:rgba(155,111,201,.25);color:#52288a}
+.demo-btn.active{outline:2px solid currentColor;outline-offset:1px}
+
+/* TTS 朗读开关按钮 */
+.tts-toggle{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 10px;height:28px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+  background:var(--surface);cursor:pointer;
+  font-family:var(--font-sans);font-size:.72rem;font-weight:600;
+  color:var(--text-muted);
+  transition:all .15s;
+}
+.tts-toggle:hover{background:var(--accent-lt);border-color:var(--accent);color:var(--accent)}
+.tts-toggle.active{background:rgba(155,111,201,.12);border-color:rgba(155,111,201,.4);color:#52288a}
+
+/* ─── 主体 body（左右分栏）─── */
+.app-body{
+  display:grid;
+  grid-template-columns:40% 1fr;
+  flex:1;min-height:0;overflow:hidden;
+}
+
+/* ─── 左栏（Live2D 形象区）─── */
+.avatar-col{
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:16px 14px 12px;
+  border-right:1px solid var(--border);
+  background:var(--surface-warm);
+  gap:10px;position:relative;
+}
+
+/* Live2D 画布容器 */
+.live2d-wrap{
+  position:relative;
+  width:200px;height:240px;
+  border-radius:var(--radius-xl);
+  overflow:hidden;
+  background:linear-gradient(160deg,#f0e8dc 0%,#e0d4c4 100%);
+  transition:box-shadow .3s ease;
+  flex-shrink:0;cursor:pointer;
+}
+.live2d-wrap:hover .click-hint{opacity:1}
+
+/* 状态光环 */
+.live2d-wrap.ring-idle{box-shadow:0 0 0 3px var(--state-idle),var(--shadow-lg)}
+.live2d-wrap.ring-listen{box-shadow:0 0 0 3px var(--state-listen),0 0 20px rgba(90,171,126,.3),var(--shadow-lg)}
+.live2d-wrap.ring-think{box-shadow:0 0 0 3px var(--state-think),0 0 20px rgba(201,120,74,.3),var(--shadow-lg)}
+.live2d-wrap.ring-speak{box-shadow:0 0 0 3px var(--state-speak),0 0 20px rgba(155,111,201,.3),var(--shadow-lg)}
+.live2d-wrap.ring-wake{box-shadow:0 0 0 3px var(--state-wake),0 0 25px rgba(230,184,74,.4),var(--shadow-lg)}
+
+/* 脉冲环 */
+.pulse-ring-wrap{
+  position:absolute;inset:-5px;
+  border-radius:calc(var(--radius-xl) + 5px);
+  pointer-events:none;
+  border:2px solid transparent;
+  transition:border-color .3s;
+}
+.pulse-ring-wrap.pulsing-think{border-color:var(--state-think);animation:pulse-ring 1.2s ease-in-out infinite}
+.pulse-ring-wrap.pulsing-listen{border-color:var(--state-listen);animation:pulse-ring 1.8s ease-in-out infinite}
+.pulse-ring-wrap.pulsing-speak{border-color:var(--state-speak);animation:pulse-ring .9s ease-in-out infinite}
+.pulse-ring-wrap.pulsing-wake{border-color:var(--state-wake);animation:pulse-ring .5s ease-in-out infinite}
+
+/* Live2D canvas */
+#live2d-canvas{position:absolute;inset:0;width:100% !important;height:100% !important;display:block}
+
+/* Loading */
+.avatar-loading{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:linear-gradient(160deg,#f0e8dc 0%,#e0d4c4 100%);
+  z-index:10;transition:opacity .5s ease;
+}
+.avatar-loading.hidden{opacity:0;pointer-events:none}
+.loading-spinner{
+  width:32px;height:32px;
+  border:3px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .9s linear infinite;
+}
+.loading-text{font-size:.72rem;font-weight:500;color:var(--text-muted);letter-spacing:.02em}
+
+/* 加载失败兜底 */
+.avatar-fallback{
+  position:absolute;inset:0;
+  display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;
+  background:linear-gradient(160deg,#f0e8dc 0%,#e0d4c4 100%);
+}
+.avatar-fallback.visible{display:flex}
+.fallback-icon{
+  width:80px;height:80px;border-radius:50%;
+  background:var(--accent-lt);border:2px solid var(--accent);
+  display:flex;align-items:center;justify-content:center;
+}
+.fallback-text{font-size:.68rem;color:var(--text-muted);text-align:center;line-height:1.5;padding:0 12px}
+
+/* 名牌 */
+.avatar-name-tag{
+  position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  background:rgba(44,36,23,.52);backdrop-filter:blur(8px);
+  color:#fff;font-size:.68rem;font-weight:600;
+  padding:3px 12px;border-radius:var(--radius-full);
+  white-space:nowrap;letter-spacing:.04em;z-index:5;
+}
+.click-hint{
+  position:absolute;bottom:30px;left:50%;transform:translateX(-50%);
+  background:rgba(44,36,23,.6);color:rgba(255,255,255,.8);
+  font-size:.58rem;padding:2px 8px;border-radius:var(--radius-full);
+  white-space:nowrap;opacity:0;transition:opacity .2s;pointer-events:none;z-index:6;
+}
+
+/* 状态提示气泡 */
+.avatar-status-bubble{
+  width:100%;max-width:200px;min-height:28px;
+  background:rgba(44,36,23,.05);
+  border-radius:var(--radius-md);
+  padding:6px 10px;
+  font-size:.75rem;line-height:1.4;
+  color:var(--text-muted);font-style:italic;
+  border-left:3px solid var(--state-idle);
+  transition:border-color .3s,opacity .3s;
+}
+
+/* 语音按钮 */
+.voice-btn{
+  width:100%;max-width:200px;height:44px;
+  border-radius:var(--radius-md);border:none;cursor:pointer;
+  font-family:var(--font-sans);font-size:.82rem;font-weight:600;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  transition:all .2s ease-out;position:relative;overflow:hidden;flex-shrink:0;
+}
+.voice-btn-default{background:var(--accent);color:#fff;box-shadow:var(--shadow-md)}
+.voice-btn-default:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+.voice-btn-default:active{transform:translateY(0)}
+.voice-btn-listening{background:var(--state-listen);color:#fff;box-shadow:0 0 0 2px rgba(90,171,126,.4),var(--shadow-md)}
+
+/* 波形 */
+.wave-bars{display:flex;align-items:center;gap:2px;height:18px}
+.wave-bar{width:3px;background:currentColor;border-radius:2px;opacity:.9}
+.wave-bar:nth-child(1){animation:wave1 .65s ease-in-out infinite}
+.wave-bar:nth-child(2){animation:wave2 .8s ease-in-out infinite .1s}
+.wave-bar:nth-child(3){animation:wave3 .7s ease-in-out infinite .2s}
+.wave-bar:nth-child(4){animation:wave4 .55s ease-in-out infinite .05s}
+.wave-bar:nth-child(5){animation:wave5 .9s ease-in-out infinite .15s}
+
+/* ─── 右栏（对话区）─── */
+.chat-col{display:flex;flex-direction:column;overflow:hidden}
+
+/* 消息滚动区 */
+.messages{
+  flex:1;overflow-y:auto;
+  padding:14px;
+  display:flex;flex-direction:column;gap:9px;
+  scroll-behavior:smooth;
+}
+.messages::-webkit-scrollbar{width:4px}
+.messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* 气泡 */
+.bubble{
+  max-width:80%;padding:9px 13px;
+  font-size:.83rem;line-height:1.65;
+  animation:fadeInUp .28s ease-out both;
+}
+.bubble-ai{
+  align-self:flex-start;
+  background:var(--surface);
+  border:1px solid var(--border);
+  box-shadow:var(--shadow-sm);
+  border-radius:4px 13px 13px 13px;
+  color:var(--text);
+}
+.bubble-user{
+  align-self:flex-end;
+  background:var(--accent-lt);
+  border:1px solid #e8c4a8;
+  border-radius:13px 4px 13px 13px;
+  color:var(--text);
+}
+.bubble-time{font-size:.62rem;color:var(--text-faint);margin-top:3px;text-align:right}
+.bubble-ai .bubble-time{text-align:left}
+
+/* 思考气泡 */
+.bubble-thinking{
+  align-self:flex-start;
+  background:var(--accent-lt);
+  border:1px solid rgba(201,120,74,.3);
+  border-radius:4px 13px 13px 13px;
+  padding:9px 13px;
+  font-size:.8rem;font-style:italic;
+  color:var(--accent-dark);
+  display:flex;align-items:center;gap:7px;
+  animation:fadeInUp .28s ease-out both;
+}
+.typing-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--accent);
+  animation:typing-dots .9s ease-in-out infinite;
+}
+.typing-dot:nth-child(2){animation-delay:.15s}
+.typing-dot:nth-child(3){animation-delay:.3s}
+
+/* 输入区 */
+.input-area{
+  padding:9px 11px;
+  border-top:1px solid var(--border);
+  background:var(--surface-warm);
+  display:flex;gap:7px;align-items:center;
+  flex-shrink:0;
+}
+.text-input{
+  flex:1;height:36px;
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:0 11px;
+  font-family:var(--font-sans);font-size:.83rem;
+  background:var(--surface);color:var(--text);
+  outline:none;transition:border-color .15s,box-shadow .15s;
+}
+.text-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,120,74,.12)}
+.text-input::placeholder{color:var(--text-faint)}
+.text-input:disabled{background:var(--surface-deep);opacity:.6;cursor:not-allowed}
+
+.send-btn{
+  height:36px;padding:0 14px;
+  border-radius:var(--radius-md);
+  background:var(--accent);color:#fff;
+  border:none;cursor:pointer;
+  font-family:var(--font-sans);font-size:.83rem;font-weight:600;
+  display:flex;align-items:center;gap:5px;
+  transition:all .15s;box-shadow:var(--shadow-sm);
+}
+.send-btn:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.send-btn:active{transform:translateY(0)}
+.send-btn:disabled{background:var(--surface-deep);color:var(--text-faint);cursor:not-allowed;transform:none;box-shadow:none}
+
+.mic-btn{
+  width:36px;height:36px;
+  border-radius:var(--radius-md);
+  border:1px solid var(--border);
+  background:var(--surface);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-muted);transition:all .15s;
+}
+.mic-btn:hover{background:var(--accent-lt);border-color:var(--accent);color:var(--accent)}
+.mic-btn.active{background:var(--state-listen);border-color:var(--state-listen);color:#fff}
+
+/* ─── 记忆管理面板（阶段 4）─── */
+.memory-panel-overlay{
+  position:fixed;inset:0;
+  background:rgba(44,36,23,.45);backdrop-filter:blur(4px);
+  z-index:500;
+  display:flex;align-items:center;justify-content:center;
+  animation:fadeIn .2s ease-out;
+}
+.memory-panel-overlay.hidden{display:none}
+
+.memory-panel{
+  width:780px;max-width:96vw;
+  max-height:90vh;
+  background:var(--bg);
+  border-radius:var(--radius-xl);
+  border:1px solid var(--border);
+  box-shadow:var(--shadow-xl);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+
+/* 面板顶栏 */
+.mp-header{
+  display:flex;align-items:center;gap:10px;
+  padding:13px 18px;
+  background:var(--surface-warm);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.mp-title{
+  font-family:var(--font-serif);
+  font-size:1rem;font-weight:700;color:var(--text);flex:1;
+}
+.mp-close{
+  width:28px;height:28px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--surface);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--text-muted);font-size:1rem;line-height:1;
+  transition:all .15s;
+}
+.mp-close:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-lt)}
+
+/* 画像卡 */
+.mp-profile-section{
+  padding:16px 18px 0;
+  flex-shrink:0;
+}
+.mp-profile-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-left:4px solid var(--accent);
+  border-radius:var(--radius-md);
+  padding:13px 16px;
+  box-shadow:var(--shadow-sm);
+}
+.mp-profile-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;
+}
+.mp-profile-label{
+  font-size:.68rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-muted);
+  display:flex;align-items:center;gap:5px;
+}
+.mp-profile-edit-btn{
+  font-size:.72rem;font-weight:600;
+  padding:3px 10px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--surface-warm);
+  color:var(--text-muted);cursor:pointer;transition:all .15s;
+}
+.mp-profile-edit-btn:hover{border-color:var(--accent);color:var(--accent)}
+.mp-profile-fields{display:flex;flex-wrap:wrap;gap:8px;min-height:22px}
+.mp-profile-field{
+  display:flex;gap:5px;align-items:center;font-size:.8rem;
+}
+.mp-field-label{
+  color:var(--text-faint);font-weight:600;font-size:.68rem;
+  text-transform:uppercase;letter-spacing:.06em;
+}
+.mp-field-value{
+  color:var(--text);font-weight:500;
+  background:var(--accent-lt);border-radius:var(--radius-sm);
+  padding:1px 8px;border:1px solid rgba(201,120,74,.2);font-size:.78rem;
+}
+.mp-profile-empty{color:var(--text-faint);font-size:.8rem;font-style:italic}
+
+/* 画像编辑区 */
+.mp-profile-editor{
+  display:none;
+  margin-top:10px;padding-top:10px;
+  border-top:1px dashed var(--border);
+}
+.mp-profile-editor.visible{display:block}
+.mp-profile-textarea{
+  width:100%;height:90px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:8px 10px;resize:vertical;
+  font-family:var(--font-sans);font-size:.8rem;
+  background:var(--surface);color:var(--text);
+  outline:none;
+}
+.mp-profile-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,120,74,.1)}
+.mp-profile-hint{font-size:.68rem;color:var(--text-faint);margin:5px 0;}
+.mp-profile-save-row{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
+.mp-btn-save{
+  padding:4px 14px;border-radius:var(--radius-sm);
+  background:var(--accent);color:#fff;border:none;
+  font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s;
+}
+.mp-btn-save:hover{background:var(--accent-hover)}
+.mp-btn-cancel{
+  padding:4px 12px;border-radius:var(--radius-sm);
+  background:var(--surface-warm);color:var(--text-muted);
+  border:1px solid var(--border);font-size:.78rem;cursor:pointer;transition:all .15s;
+}
+.mp-btn-cancel:hover{border-color:var(--accent);color:var(--accent)}
+
+/* 记忆列表区 */
+.mp-memories-section{
+  flex:1;overflow:hidden;display:flex;flex-direction:column;
+  padding:14px 18px 16px;
+}
+.mp-memories-toolbar{
+  display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-shrink:0;
+}
+.mp-section-label{
+  font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-faint);flex:1;
+  display:flex;align-items:center;gap:6px;
+}
+.mp-section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.mp-add-btn{
+  display:flex;align-items:center;gap:4px;
+  padding:4px 12px;border-radius:var(--radius-sm);
+  border:1px solid rgba(201,120,74,.35);background:var(--accent-lt);
+  color:var(--accent);font-size:.75rem;font-weight:600;cursor:pointer;transition:all .15s;
+}
+.mp-add-btn:hover{background:var(--accent);color:#fff}
+
+.mp-memories-list{
+  flex:1;overflow-y:auto;
+  display:flex;flex-direction:column;gap:8px;
+}
+.mp-memories-list::-webkit-scrollbar{width:4px}
+.mp-memories-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.mp-empty{
+  color:var(--text-faint);font-size:.82rem;font-style:italic;
+  text-align:center;padding:24px 0;
+}
+
+/* 单条记忆卡 */
+.mp-mem-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-left:3px solid var(--info,#3a6ea8);
+  border-radius:var(--radius-md);
+  padding:11px 14px;
+  transition:box-shadow .15s;
+  position:relative;
+}
+.mp-mem-card:hover{box-shadow:var(--shadow-md)}
+.mp-mem-meta{
+  font-size:.66rem;font-weight:600;color:var(--text-faint);
+  letter-spacing:.04em;margin-bottom:6px;
+  display:flex;align-items:center;gap:6px;
+}
+.mp-mem-type-badge{
+  padding:1px 6px;border-radius:var(--radius-full);
+  font-size:.62rem;font-weight:700;letter-spacing:.04em;
+}
+.type-convo{background:rgba(58,110,168,.1);color:#3a6ea8}
+.type-manual{background:rgba(46,125,82,.1);color:#2e7d52}
+.mp-mem-content{
+  font-size:.82rem;line-height:1.55;color:var(--text);
+}
+.mp-mem-actions{
+  display:flex;gap:6px;margin-top:8px;
+  opacity:0;transition:opacity .15s;
+}
+.mp-mem-card:hover .mp-mem-actions{opacity:1}
+.mp-action-btn{
+  font-size:.7rem;font-weight:600;padding:2px 10px;
+  border-radius:var(--radius-sm);border:1px solid var(--border);
+  background:var(--surface-warm);color:var(--text-muted);cursor:pointer;transition:all .15s;
+}
+.mp-action-btn:hover{border-color:var(--accent);color:var(--accent)}
+.mp-action-btn.danger:hover{border-color:var(--danger,#c0392b);color:var(--danger,#c0392b)}
+
+/* 内联编辑 */
+.mp-mem-edit{
+  display:none;margin-top:8px;
+}
+.mp-mem-edit.visible{display:block}
+.mp-mem-edit-input{
+  width:100%;height:64px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:6px 10px;resize:none;
+  font-family:var(--font-sans);font-size:.8rem;
+  background:var(--surface);color:var(--text);outline:none;
+}
+.mp-mem-edit-input:focus{border-color:var(--accent)}
+.mp-mem-edit-row{display:flex;gap:6px;justify-content:flex-end;margin-top:5px}
+
+/* 内联删除确认 */
+.mp-delete-confirm{
+  display:none;margin-top:8px;padding:7px 10px;
+  background:rgba(192,57,43,.06);border:1px solid rgba(192,57,43,.2);
+  border-radius:var(--radius-sm);
+  font-size:.76rem;color:var(--danger,#c0392b);
+  display:none;align-items:center;justify-content:space-between;gap:8px;
+}
+.mp-delete-confirm.visible{display:flex}
+.mp-confirm-btns{display:flex;gap:6px}
+.mp-confirm-yes{
+  padding:2px 12px;border-radius:var(--radius-sm);
+  background:var(--danger,#c0392b);color:#fff;border:none;
+  font-size:.72rem;font-weight:600;cursor:pointer;
+}
+.mp-confirm-no{
+  padding:2px 12px;border-radius:var(--radius-sm);
+  background:var(--surface-warm);color:var(--text-muted);
+  border:1px solid var(--border);font-size:.72rem;cursor:pointer;
+}
+
+/* 新增记忆输入区 */
+.mp-add-memory-form{
+  display:none;padding:10px;
+  background:var(--surface-warm);border:1px dashed var(--border);
+  border-radius:var(--radius-md);margin-bottom:8px;
+}
+.mp-add-memory-form.visible{display:block}
+.mp-add-input{
+  width:100%;height:60px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:7px 10px;resize:none;
+  font-family:var(--font-sans);font-size:.8rem;
+  background:var(--surface);color:var(--text);outline:none;
+}
+.mp-add-input:focus{border-color:var(--accent)}
+.mp-add-row{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
+
+/* 记忆按钮在 topbar 里 */
+.memory-btn{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 10px;height:28px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+  background:var(--surface);cursor:pointer;
+  font-family:var(--font-sans);font-size:.72rem;font-weight:600;
+  color:var(--text-muted);
+  transition:all .15s;
+}
+.memory-btn:hover{background:var(--accent-lt);border-color:var(--accent);color:var(--accent)}
+.memory-btn.has-memory{border-color:rgba(201,120,74,.4);background:var(--accent-lt);color:var(--accent)}
+
+/* ─── 唤醒词监听提示条（阶段 5）─── */
+.wake-listen-bar{
+  display:none;
+  align-items:center;justify-content:center;gap:6px;
+  padding:3px 10px;
+  background:rgba(230,184,74,.12);
+  border-top:1px solid rgba(230,184,74,.3);
+  font-size:.68rem;color:#7a5000;
+  flex-shrink:0;letter-spacing:.02em;
+}
+.wake-listen-bar.active{display:flex}
+.wake-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--state-wake);
+  animation:pulse-dot .6s ease-in-out infinite;
+}
+
+/* ─── 真人形象入口按钮（阶段 6）─── */
+.realhuman-btn{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 10px;height:28px;
+  border-radius:var(--radius-sm);
+  border:1px solid rgba(155,111,201,.35);
+  background:rgba(155,111,201,.06);
+  cursor:pointer;
+  font-family:var(--font-sans);font-size:.72rem;font-weight:600;
+  color:#52288a;
+  transition:all .15s;
+}
+.realhuman-btn:hover{background:rgba(155,111,201,.15);border-color:rgba(155,111,201,.6)}
+
+/* ─── 真人形象说明面板（阶段 6）─── */
+.rh-panel-overlay{
+  position:fixed;inset:0;
+  background:rgba(44,36,23,.5);backdrop-filter:blur(6px);
+  z-index:600;
+  display:flex;align-items:center;justify-content:center;
+  animation:fadeIn .2s ease-out;
+}
+.rh-panel-overlay.hidden{display:none}
+
+.rh-panel{
+  width:560px;max-width:96vw;
+  background:var(--bg);
+  border-radius:var(--radius-xl);
+  border:1px solid var(--border);
+  box-shadow:var(--shadow-xl);
+  overflow:hidden;
+}
+
+.rh-panel-header{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 18px;
+  background:var(--surface-warm);
+  border-bottom:1px solid var(--border);
+}
+.rh-panel-title{
+  font-family:var(--font-serif);
+  font-size:1rem;font-weight:700;color:var(--text);flex:1;
+  display:flex;align-items:center;gap:7px;
+}
+.rh-panel-close{
+  width:28px;height:28px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--surface);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--text-muted);font-size:1rem;line-height:1;
+  transition:all .15s;
+}
+.rh-panel-close:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-lt)}
+
+.rh-panel-body{padding:20px 22px;display:flex;flex-direction:column;gap:16px}
+
+/* 诚实说明块 */
+.rh-honest-block{
+  background:rgba(230,184,74,.08);
+  border:1px solid rgba(230,184,74,.35);
+  border-left:4px solid var(--state-wake);
+  border-radius:var(--radius-md);
+  padding:13px 15px;
+  font-size:.82rem;line-height:1.7;
+  color:var(--text);
+}
+.rh-honest-block strong{color:#7a5000}
+
+/* 原因列表 */
+.rh-reason-list{
+  list-style:none;display:flex;flex-direction:column;gap:7px;
+  padding:0;margin:0;font-size:.8rem;line-height:1.6;color:var(--text);
+}
+.rh-reason-list li{display:flex;gap:8px;align-items:flex-start}
+.rh-reason-list li::before{
+  content:'×';
+  color:#d94f3a;font-weight:700;font-size:.85rem;flex-shrink:0;margin-top:.1em;
+}
+
+/* 推荐方案块 */
+.rh-solution-block{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:13px 15px;
+  display:flex;flex-direction:column;gap:8px;
+}
+.rh-solution-label{
+  font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-muted);margin-bottom:2px;
+}
+.rh-solution-row{
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  font-size:.8rem;line-height:1.6;color:var(--text);
+}
+.rh-tag{
+  display:inline-block;padding:1px 8px;
+  border-radius:var(--radius-sm);
+  font-size:.72rem;font-weight:600;
+  background:var(--accent-lt);border:1px solid rgba(201,120,74,.3);
+  color:var(--accent-dark);white-space:nowrap;
+}
+.rh-tag-purple{
+  background:rgba(155,111,201,.1);border-color:rgba(155,111,201,.3);color:#52288a;
+}
+
+.rh-panel-footer{
+  padding:12px 22px 16px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  border-top:1px solid var(--border-light);
+}
+.rh-hint-text{
+  font-size:.72rem;color:var(--text-faint);line-height:1.5;
+}
+.rh-doc-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 16px;border-radius:var(--radius-sm);
+  background:rgba(155,111,201,.12);border:1px solid rgba(155,111,201,.35);
+  color:#52288a;font-size:.78rem;font-weight:600;
+  cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.rh-doc-btn:hover{background:rgba(155,111,201,.22);border-color:rgba(155,111,201,.6)}
+
+/* ─── 打断提示 Flash（状态机光环快速切换）─── */
+@keyframes barge-in-flash{
+  0%{box-shadow:0 0 0 3px var(--state-speak),0 0 20px rgba(155,111,201,.3),var(--shadow-lg)}
+  40%{box-shadow:0 0 0 6px var(--state-listen),0 0 30px rgba(90,171,126,.6),var(--shadow-lg)}
+  100%{box-shadow:0 0 0 3px var(--state-listen),0 0 20px rgba(90,171,126,.3),var(--shadow-lg)}
+}
+.live2d-wrap.barge-in-anim{animation:barge-in-flash .35s ease-out forwards}
+
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* ─── Keyframes ─── */
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.7)}}
+@keyframes pulse-ring{0%,100%{transform:scale(1);opacity:.8}50%{transform:scale(1.06);opacity:.3}}
+@keyframes wave1{0%,100%{height:5px}50%{height:16px}}
+@keyframes wave2{0%,100%{height:9px}50%{height:22px}}
+@keyframes wave3{0%,100%{height:7px}50%{height:18px}}
+@keyframes wave4{0%,100%{height:13px}50%{height:9px}}
+@keyframes wave5{0%,100%{height:4px}50%{height:14px}}
+@keyframes typing-dots{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- 顶部说明条 -->
+<div class="proto-notice">
+  <strong>小艾数字分身</strong> · MVP 完整版（阶段 0-6）· 真人形象请点击 topbar 入口查看云端方案
+  <span class="conn-indicator">
+    <span class="conn-dot" id="connDot"></span>
+    <span id="connText">连接中…</span>
+  </span>
+</div>
+
+<!-- App 主窗口 -->
+<div class="app-window" id="appWindow">
+
+  <!-- macOS 标题栏 -->
+  <div class="titlebar">
+    <div class="tl-dots">
+      <div class="tl-dot tl-red"></div>
+      <div class="tl-dot tl-yellow"></div>
+      <div class="tl-dot tl-green"></div>
+    </div>
+    <div class="titlebar-title">小艾 — 你的数字分身助手</div>
+  </div>
+
+  <!-- 顶部工具栏 -->
+  <div class="app-topbar">
+    <span class="topbar-logo">小艾</span>
+
+    <!-- 状态药丸 -->
+    <span class="status-pill pill-idle" id="statusPill">
+      <span class="dot"></span>
+      <span id="statusText">待机中</span>
+    </span>
+
+    <div class="topbar-spacer"></div>
+
+    <!-- 真人形象入口（阶段 6）-->
+    <button class="realhuman-btn" id="realHumanBtn" onclick="openRealHumanPanel()" title="了解云端真人写实形象方案">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/><path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/></svg>
+      真人形象（云端）
+    </button>
+
+    <!-- 记忆管理按钮（阶段 4）-->
+    <button class="memory-btn" id="memoryBtn" onclick="openMemoryPanel()" title="查看和管理小艾对你的记忆">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/><path d="M3 19a9 9 0 0 1 18 0"/></svg>
+      <span id="memoryBtnLabel">记忆</span>
+    </button>
+
+    <!-- TTS 朗读开关 -->
+    <button class="tts-toggle" id="ttsToggle" onclick="toggleTTS()" title="开关语音朗读">
+      <span id="ttsIcon">🔊</span>
+      <span id="ttsLabel">朗读</span>
+    </button>
+
+    <!-- 语音打断开关（阶段 5）-->
+    <button class="tts-toggle" id="bargeInToggle" onclick="toggleBargeIn()" title="开关语音打断：小艾说话时你开口可打断">
+      <span id="bargeInIcon">✂️</span>
+      <span id="bargeInLabel">打断</span>
+    </button>
+
+    <!-- 唤醒词常驻监听开关（阶段 5）-->
+    <button class="tts-toggle" id="wakeWordToggle" onclick="toggleWakeWord()" title="开关唤醒词监听：常驻监听，喊「小艾」自动激活（麦克风常开）">
+      <span id="wakeWordIcon">👂</span>
+      <span id="wakeWordLabel">唤醒</span>
+    </button>
+
+    <!-- 演示状态切换（讲课用，让讲师演示五色状态）-->
+    <div class="demo-bar">
+      <span class="demo-label">演示</span>
+      <button class="demo-btn active" data-state="idle" title="待机" onclick="demoSetState('idle')">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/></svg>
+      </button>
+      <button class="demo-btn" data-state="wake" title="唤醒" onclick="demoSetState('wake')">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/></svg>
+      </button>
+      <button class="demo-btn" data-state="listen" title="聆听" onclick="demoSetState('listen')">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/><path d="M10 8a2 2 0 1 1-4 0V3a2 2 0 1 1 4 0v5z"/></svg>
+      </button>
+      <button class="demo-btn" data-state="think" title="思考" onclick="demoSetState('think')">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12.793a.5.5 0 0 1-.854.353l-2.02-2.02a.5.5 0 0 0-.707 0L9.2 14.346a.5.5 0 0 1-.707 0l-1.219-1.22a.5.5 0 0 0-.707 0L4.547 15.12a.5.5 0 0 1-.708 0L2 13.273V2z"/><path d="M8 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm2-1a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM4 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
+      </button>
+      <button class="demo-btn" data-state="speak" title="说话" onclick="demoSetState('speak')">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/><path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/><path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707z"/><path d="M6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- 主体区域 -->
+  <div class="app-body">
+
+    <!-- 左栏：Live2D 形象区 -->
+    <div class="avatar-col">
+      <div style="position:relative">
+        <div class="live2d-wrap ring-idle" id="live2dWrap">
+          <canvas id="live2d-canvas"></canvas>
+
+          <!-- Loading 状态 -->
+          <div class="avatar-loading" id="avatarLoading">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">正在唤醒小艾…</div>
+          </div>
+
+          <!-- 加载失败兜底：没有模型也能正常对话 -->
+          <div class="avatar-fallback" id="avatarFallback">
+            <div class="fallback-icon">
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="14" r="10" fill="#c9784a" opacity=".25"/>
+                <circle cx="20" cy="14" r="7" fill="#c9784a" opacity=".4"/>
+                <ellipse cx="20" cy="32" rx="13" ry="8" fill="#c9784a" opacity=".2"/>
+                <circle cx="16.5" cy="13" r="2" fill="#2c2417"/>
+                <circle cx="23.5" cy="13" r="2" fill="#2c2417"/>
+                <path d="M16 18 Q20 21 24 18" stroke="#2c2417" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+              </svg>
+            </div>
+            <div class="fallback-text">形象加载中<br>对话功能正常</div>
+          </div>
+
+          <div class="avatar-name-tag">小艾</div>
+          <div class="click-hint">点击触发动作</div>
+        </div>
+        <div class="pulse-ring-wrap" id="pulseRing"></div>
+      </div>
+
+      <!-- 状态提示气泡 -->
+      <div class="avatar-status-bubble" id="statusBubble" style="border-left-color:var(--state-idle)">
+        随时可以跟我说话 ~
+      </div>
+
+      <!-- 语音按钮（阶段 2：ASR 语音输入）-->
+      <button class="voice-btn voice-btn-default" id="voiceBtn" onclick="onVoiceClick()" title="点击开始/停止录音">
+        <!-- 默认图标：麦克风 -->
+        <span id="voiceBtnIcon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/><path d="M10 8a2 2 0 1 1-4 0V3a2 2 0 1 1 4 0v5z"/></svg>
+        </span>
+        <!-- 录音中：波形动画 -->
+        <span id="voiceBtnWave" style="display:none">
+          <span class="wave-bars">
+            <span class="wave-bar" style="height:6px"></span>
+            <span class="wave-bar" style="height:14px"></span>
+            <span class="wave-bar" style="height:10px"></span>
+            <span class="wave-bar" style="height:18px"></span>
+            <span class="wave-bar" style="height:8px"></span>
+          </span>
+        </span>
+        <span id="voiceBtnText">说话</span>
+      </button>
+    </div>
+
+    <!-- 右栏：对话区 -->
+    <div class="chat-col">
+      <div class="messages" id="messages">
+        <div class="bubble bubble-ai">
+          <div>你好！我是小艾，你的数字分身学习助手。有什么我可以帮你的吗？</div>
+          <div class="bubble-time">刚刚</div>
+        </div>
+      </div>
+
+      <!-- 唤醒词监听提示条（阶段 5，唤醒监听开启时展示）-->
+      <div class="wake-listen-bar" id="wakeListenBar">
+        <span class="wake-dot"></span>
+        <span id="wakeListenText">正在监听唤醒词「小艾」…</span>
+      </div>
+
+      <!-- 输入区 -->
+      <div class="input-area">
+        <button class="mic-btn" id="micBtnInline" title="语音输入（阶段 2）" onclick="onVoiceClick()">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/><path d="M10 8a2 2 0 1 1-4 0V3a2 2 0 1 1 4 0v5z"/></svg>
+        </button>
+        <input
+          type="text"
+          class="text-input"
+          id="chatInput"
+          placeholder="输入消息，Enter 发送…"
+          autocomplete="off"
+        />
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.591 6.602l4.339 2.76 7.494-7.493Z"/></svg>
+          发送
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 记忆管理面板（阶段 4，初始隐藏） -->
+<div class="memory-panel-overlay hidden" id="memoryOverlay" onclick="onOverlayClick(event)">
+  <div class="memory-panel" id="memoryPanel">
+
+    <!-- 面板顶栏 -->
+    <div class="mp-header">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/><path d="M3 19a9 9 0 0 1 18 0"/></svg>
+      <div class="mp-title">记忆管理 · 小艾认识你</div>
+      <button class="mp-close" onclick="closeMemoryPanel()" title="关闭">×</button>
+    </div>
+
+    <!-- 用户画像区 -->
+    <div class="mp-profile-section">
+      <div class="mp-profile-card">
+        <div class="mp-profile-header">
+          <div class="mp-profile-label">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664z"/></svg>
+            用户画像
+          </div>
+          <button class="mp-profile-edit-btn" id="profileEditBtn" onclick="toggleProfileEditor()">编辑画像</button>
+        </div>
+        <div class="mp-profile-fields" id="profileFields">
+          <span class="mp-profile-empty">暂无画像信息 — 和小艾聊一聊自己，它会记住的</span>
+        </div>
+        <!-- 画像编辑区（默认折叠） -->
+        <div class="mp-profile-editor" id="profileEditor">
+          <div class="mp-profile-hint">每行一条，格式：字段名: 值（如「称呼: 小张」）</div>
+          <textarea class="mp-profile-textarea" id="profileTextarea" placeholder="称呼: 小张&#10;职业: 产品经理&#10;偏好: 喜欢类比讲解&#10;方向: AI 开发学习中"></textarea>
+          <div class="mp-profile-save-row">
+            <button class="mp-btn-cancel" onclick="toggleProfileEditor()">取消</button>
+            <button class="mp-btn-save" onclick="saveProfileFromEditor()">保存画像</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 对话记忆区 -->
+    <div class="mp-memories-section">
+      <div class="mp-memories-toolbar">
+        <div class="mp-section-label">对话记忆</div>
+        <button class="mp-add-btn" onclick="showAddMemoryForm()">+ 手动添加</button>
+      </div>
+
+      <!-- 手动新增表单（默认隐藏） -->
+      <div class="mp-add-memory-form" id="addMemoryForm">
+        <textarea class="mp-add-input" id="addMemoryInput" placeholder="手动记录一件重要的事（如：今天面试成功了！）…"></textarea>
+        <div class="mp-add-row">
+          <button class="mp-btn-cancel" onclick="hideAddMemoryForm()">取消</button>
+          <button class="mp-btn-save" onclick="submitAddMemory()">添加记忆</button>
+        </div>
+      </div>
+
+      <div class="mp-memories-list" id="memoriesList">
+        <div class="mp-empty">暂无记忆 — 开始对话，小艾会自动记录重要的事</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 真人形象说明面板（阶段 6，初始隐藏） -->
+<div class="rh-panel-overlay hidden" id="rhOverlay" onclick="onRhOverlayClick(event)">
+  <div class="rh-panel" id="rhPanel">
+
+    <!-- 面板顶栏 -->
+    <div class="rh-panel-header">
+      <div class="rh-panel-title">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/><path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/></svg>
+        真人写实形象 · 技术边界说明
+      </div>
+      <button class="rh-panel-close" onclick="closeRealHumanPanel()" title="关闭">×</button>
+    </div>
+
+    <!-- 面板主体 -->
+    <div class="rh-panel-body">
+
+      <!-- 诚实说明 -->
+      <div class="rh-honest-block">
+        <strong>本地 Mac 跑不动真人写实形象</strong>，这不是软件问题，而是硬件架构决定的。
+        小艾当前使用的是 Live2D 卡通形象，在 Mac 上实时流畅运行，已经是完整产品体验。
+        真人写实需要上云，下面说清楚为什么、以及怎么做。
+      </div>
+
+      <!-- 原因 -->
+      <div>
+        <div class="rh-solution-label">本地不可行的原因</div>
+        <ul class="rh-reason-list">
+          <li>真人口型驱动（MuseTalk / SoulX / LiveTalking）依赖 <strong>FP8 量化 + FlashAttention-3 + cuDNN fused kernel</strong> 加速，这些是 NVIDIA CUDA 的专有特性</li>
+          <li>Apple Silicon（M 系芯片）使用 MPS 后端，<strong>不支持 FP8 / FlashAttention-3</strong>，计算效率差 10-20 倍，实时根本跑不动</li>
+          <li>常见误区：「M4 Ultra 128GB 显存不就够了？」—— 装得下 ≠ 算得快，统一内存解决容量问题，解决不了算力问题</li>
+          <li>调研核实：LiveTalking / MuseTalk / LiteAvatar 在 Mac 均无实时跑通证据（issues 确认）</li>
+        </ul>
+      </div>
+
+      <!-- 推荐方案 -->
+      <div class="rh-solution-block">
+        <div class="rh-solution-label">想要真人形象？租云主机（进阶选学）</div>
+        <div class="rh-solution-row">
+          <span class="rh-tag rh-tag-purple">推荐框架</span>
+          LiveTalking（原 metahuman-stream）— GitHub lipku/LiveTalking，支持 WebRTC 推流
+        </div>
+        <div class="rh-solution-row">
+          <span class="rh-tag">云平台</span>
+          Vast.ai（RTX 4090 约 $0.31/hr）或 RunPod（$0.34-0.69/hr），按需启停约 <strong>¥70/天</strong>
+        </div>
+        <div class="rh-solution-row">
+          <span class="rh-tag">接入方式</span>
+          云端 LiveTalking 跑起来后，把服务地址填到本项目 <code style="font-family:var(--font-mono);font-size:.75rem;background:var(--surface-deep);padding:1px 5px;border-radius:3px">REALHUMAN_SERVICE_URL</code>，前端自动切换渲染
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 面板底部 -->
+    <div class="rh-panel-footer">
+      <div class="rh-hint-text">
+        普通学员用 Live2D 卡通形象已是完整产品<br>
+        真人形象是进阶方向，按需选学
+      </div>
+      <button class="rh-doc-btn" onclick="openCloudGuide()">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0V3z"/></svg>
+        查看云端部署指南
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// 全局状态
+// ─────────────────────────────────────────────────────────────
+let currentState = 'idle';
+let live2dModel = null;
+let pixiApp = null;
+let mouthValue = 0;      // 当前平滑后的口型值（每帧向 mouthTarget 靠拢）
+let mouthTarget = 0;     // 目标口型值（由 Web Audio 实时音量驱动）
+let isProcessing = false; // 防止重入
+
+// ── Web Audio API（阶段 3：嘴型跟 TTS 音频真实同步）──────────
+let audioCtx = null;        // AudioContext，需要用户手势后才能激活
+let analyserNode = null;    // AnalyserNode，用于实时读取音频频域/时域数据
+let analyserBuffer = null;  // Uint8Array，getByteTimeDomainData 的接收缓冲
+let audioCtxReady = false;  // AudioContext 是否已经激活（用户手势后置 true）
+
+/**
+ * 确保 AudioContext 已创建并处于 running 状态
+ * 必须在用户手势（click/touchstart）回调中调用，否则浏览器会拒绝
+ */
+async function ensureAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyserNode = audioCtx.createAnalyser();
+    analyserNode.fftSize = 256;          // 128 个频率桶，足够读音量
+    analyserNode.smoothingTimeConstant = 0.6; // 平滑系数，避免抖动
+    analyserBuffer = new Uint8Array(analyserNode.fftSize);
+    analyserNode.connect(audioCtx.destination);
+    console.log('[AudioCtx] AudioContext 创建完成，state:', audioCtx.state);
+  }
+  if (audioCtx.state === 'suspended') {
+    await audioCtx.resume();
+    console.log('[AudioCtx] AudioContext resume，state:', audioCtx.state);
+  }
+  audioCtxReady = audioCtx.state === 'running';
+}
+
+// ── TTS 播放状态（阶段 1）────────────────────────────────────
+let ttsEnabled = true;       // 是否开启 TTS（可由开关切换）
+let ttsServerEnabled = true; // 后端是否有 TTS 能力（健康检查后确认）
+let ttsQueue = [];           // 待播放句子的 audio blob URL 队列
+let ttsPlaying = false;      // 当前是否有音频在播放
+
+// ── ASR 状态（阶段 2）───────────────────────────────────────
+let asrEnabled = true;       // 后端是否开启 ASR（健康检查后确认）
+let asrProvider = 'webspeech'; // 后端配置的 ASR 引擎（webspeech | whisper）
+let isRecording = false;     // 当前是否在录音
+// WebSpeech 模式的识别对象
+let webSpeechRecognition = null;
+// Whisper 模式的 MediaRecorder 对象
+let mediaRecorder = null;
+let mediaChunks = [];
+
+// ── 语音打断状态（阶段 5）───────────────────────────────────
+let bargeInEnabled = true;       // 是否开启语音打断（后端配置 + 用户开关）
+let bargeInServerEnabled = true; // 后端是否配置开启打断
+// 打断用的麦克风流 + AnalyserNode（独立于 TTS 的 audioCtx，专门监测麦克风输入）
+let bargeInStream = null;        // getUserMedia 返回的麦克风流
+let bargeInAudioCtx = null;      // 专门给打断用的 AudioContext
+let bargeInAnalyser = null;      // AnalyserNode，读取麦克风音量
+let bargeInBuffer = null;        // 音量读取缓冲区
+let bargeInRAF = null;           // requestAnimationFrame 句柄
+// 连续高音量帧计数（Silero VAD 简化版：连续 N 帧超阈值才触发）
+let bargeInFrameCount = 0;
+const BARGE_IN_THRESHOLD = 0.04; // RMS 阈值（0-1），低于这个视为背景噪音
+const BARGE_IN_FRAMES = 8;       // 连续 N 帧超阈值才触发打断（约 0.25s @60fps）
+// 当前正在播放的 AudioBufferSource（打断时 stop 它）
+let currentTTSSource = null;
+
+// ── 唤醒词状态（阶段 5）─────────────────────────────────────
+let wakeWordEnabled = false;     // 用户是否开启了常驻唤醒监听（默认关闭，需用户手动开）
+let wakeWordServerEnabled = true; // 后端是否配置了唤醒词
+let wakeWords = ['小艾', '小爱']; // 触发唤醒的关键词（从后端读取）
+// 唤醒词用的 SpeechRecognition（continuous 模式）
+let wakeWordRecognition = null;
+let wakeWordActive = false;      // 唤醒词监听是否正在运行
+
+// 阶段 6：形象 Provider 状态（从后端 /api/health 读取）
+let avatarProvider = 'live2d';     // 当前形象 provider：live2d | realhuman
+let realHumanConfigured = false;   // realhuman 时是否已配置 REALHUMAN_SERVICE_URL
+
+// 流式分句缓冲：累积 LLM token，遇到句末标点就切一句去合成
+let ttsSentenceBuffer = '';
+
+// 多轮对话历史（发给后端的 messages 数组）
+// 阶段 0 只保留最近 10 轮，避免 context 太长（后续阶段可接记忆模块）
+const chatHistory = [];
+const MAX_HISTORY = 10;
+
+// Live2D 模型 URL（pin 死版本号，防止 CDN 漂移）
+const MODEL_URL = 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display@0.4.0/test/assets/haru/haru_greeter_t03.model3.json';
+
+// 五状态配置（待机/唤醒/聆听/思考/说话）
+const STATE_CONFIG = {
+  idle:   { label:'待机中',  pillClass:'pill-idle',  ringClass:'ring-idle',  pulseClass:'',              bubbleColor:'var(--state-idle)',  bubble:'随时可以跟我说话 ~' },
+  wake:   { label:'唤醒中',  pillClass:'pill-wake',  ringClass:'ring-wake',  pulseClass:'pulsing-wake',  bubbleColor:'var(--state-wake)', bubble:'嗯？你叫我了吗？' },
+  listen: { label:'聆听中',  pillClass:'pill-listen',ringClass:'ring-listen',pulseClass:'pulsing-listen', bubbleColor:'var(--state-listen)',bubble:'我在听，说吧…' },
+  think:  { label:'思考中',  pillClass:'pill-think', ringClass:'ring-think', pulseClass:'pulsing-think',  bubbleColor:'var(--state-think)', bubble:'让我想一想…' },
+  speak:  { label:'说话中',  pillClass:'pill-speak', ringClass:'ring-speak', pulseClass:'pulsing-speak',  bubbleColor:'var(--state-speak)', bubble:'我说：' },
+};
+
+// ─────────────────────────────────────────────────────────────
+// 健康检查：启动时探测后端是否在线
+// ─────────────────────────────────────────────────────────────
+async function checkHealth() {
+  const dot = document.getElementById('connDot');
+  const txt = document.getElementById('connText');
+  try {
+    const res = await fetch('/api/health');
+    const data = await res.json();
+    dot.className = 'conn-dot ok';
+
+    // 读取 TTS 状态
+    if (data.tts) {
+      ttsServerEnabled = data.tts.enabled;
+      ttsEnabled = data.tts.enabled; // 初始状态与服务端同步
+      updateTTSToggleUI();
+    }
+
+    // 读取 ASR 状态（阶段 2）
+    if (data.asr) {
+      asrEnabled = data.asr.enabled;
+      asrProvider = data.asr.provider || 'webspeech';
+      updateVoiceBtnUI();
+    }
+
+    // 读取阶段 5：打断 + 唤醒词配置
+    if (data.bargeIn) {
+      bargeInServerEnabled = data.bargeIn.enabled;
+      bargeInEnabled = data.bargeIn.enabled;
+      updateBargeInToggleUI();
+    }
+    if (data.wakeWord) {
+      wakeWordServerEnabled = data.wakeWord.enabled;
+      if (data.wakeWord.words && data.wakeWord.words.length > 0) {
+        wakeWords = data.wakeWord.words;
+      }
+      updateWakeWordToggleUI();
+      // 更新唤醒词监听提示文字
+      const bar = document.getElementById('wakeListenText');
+      if (bar) bar.textContent = `正在监听唤醒词「${wakeWords[0] || '小艾'}」…`;
+    }
+
+    // 读取阶段 6：形象 provider
+    if (data.avatar) {
+      avatarProvider = data.avatar.provider || 'live2d';
+      realHumanConfigured = data.avatar.realHumanConfigured || false;
+    }
+
+    const ttsInfo = data.tts && data.tts.enabled ? ` · 🔊 ${data.tts.provider}/${data.tts.voice}` : '';
+    const asrInfo = data.asr && data.asr.enabled ? ` · 🎤 ${data.asr.provider}` : '';
+    const bargeInfo = data.bargeIn && data.bargeIn.enabled ? ' · ✂️打断' : '';
+    const wakeInfo = data.wakeWord && data.wakeWord.enabled ? ` · 👂${data.wakeWord.words[0] || '小艾'}` : '';
+    const avatarInfo = avatarProvider === 'realhuman' ? ' · 真人形象' : ' · Live2D';
+    txt.textContent = `已连接 · ${data.provider} · ${data.model}${ttsInfo}${asrInfo}${bargeInfo}${wakeInfo}${avatarInfo}`;
+    console.log('[Health] 后端在线:', data);
+  } catch (e) {
+    dot.className = 'conn-dot err';
+    txt.textContent = '后端离线（请启动 npm start）';
+    console.error('[Health] 后端连接失败:', e);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Live2D 初始化（形象加载失败不影响对话）
+// ─────────────────────────────────────────────────────────────
+async function initLive2D() {
+  try {
+    window.PIXI = window.PIXI || PIXI;
+    const { Live2DModel, MotionPriority } = PIXI.live2d;
+    window._Live2DModel = Live2DModel;
+    window._MotionPriority = MotionPriority;
+
+    const canvas = document.getElementById('live2d-canvas');
+    const wrap = document.getElementById('live2dWrap');
+
+    pixiApp = new PIXI.Application({
+      view: canvas,
+      width: wrap.clientWidth,
+      height: wrap.clientHeight,
+      backgroundColor: 0xf0e8dc,
+      antialias: true,
+      autoDensity: true,
+      resolution: window.devicePixelRatio || 1,
+    });
+
+    // 加载模型（失败自然走 catch，不超时竞速）
+    const model = await Live2DModel.from(MODEL_URL);
+    live2dModel = model;
+    pixiApp.stage.addChild(model);
+    document.getElementById('avatarFallback').classList.remove('visible');
+
+    resizeModel();
+
+    // 眼睛跟随鼠标
+    wrap.addEventListener('pointermove', e => {
+      if (live2dModel) live2dModel.focus(e.clientX, e.clientY);
+    });
+
+    // 点击触发动作（同时趁用户手势激活 AudioContext）
+    wrap.addEventListener('click', () => {
+      ensureAudioCtx().catch(e => console.warn('[AudioCtx] 激活失败:', e));
+      if (live2dModel && live2dModel.internalModel && live2dModel.internalModel.motionManager) {
+        live2dModel.motion('Tap', undefined, window._MotionPriority && window._MotionPriority.FORCE);
+        live2dModel.expression();
+      }
+    });
+
+    // 每帧更新口型（阶段 3：由 Web Audio 实时音量驱动，不再随机摆动）
+    pixiApp.ticker.add(() => {
+      if (live2dModel && live2dModel.internalModel && live2dModel.internalModel.coreModel) {
+
+        // 从 AnalyserNode 读取时域数据，计算 RMS 音量
+        if (analyserNode && audioCtxReady && currentState === 'speak') {
+          analyserNode.getByteTimeDomainData(analyserBuffer);
+          // RMS：均方根，把 0-255 的时域数据归一到 0-1
+          let sum = 0;
+          for (let i = 0; i < analyserBuffer.length; i++) {
+            const v = (analyserBuffer[i] - 128) / 128; // 中心化到 -1~1
+            sum += v * v;
+          }
+          const rms = Math.sqrt(sum / analyserBuffer.length);
+          // 放大并钳位：静音时 rms≈0，正常说话约 0.05~0.3，放大到 0~1
+          mouthTarget = Math.min(1.0, rms * 4.5);
+        } else {
+          // 非说话状态，嘴巴闭上
+          mouthTarget = 0;
+        }
+
+        // 平滑插值：避免跳变，让嘴型动作更自然
+        mouthValue += (mouthTarget - mouthValue) * 0.35;
+        try {
+          live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', mouthValue);
+        } catch(e) { /* 参数不存在时忽略 */ }
+      }
+    });
+
+    document.getElementById('avatarLoading').classList.add('hidden');
+    window.addEventListener('resize', resizeModel);
+    console.log('[Live2D] 模型加载成功');
+  } catch (err) {
+    console.error('[Live2D] 加载失败（对话功能不受影响）:', err);
+    document.getElementById('avatarLoading').classList.add('hidden');
+    document.getElementById('avatarFallback').classList.add('visible');
+  }
+}
+
+function resizeModel() {
+  if (!live2dModel || !pixiApp) return;
+  const wrap = document.getElementById('live2dWrap');
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  pixiApp.renderer.resize(w, h);
+  const modelW = live2dModel.internalModel.originalWidth;
+  const modelH = live2dModel.internalModel.originalHeight;
+  const scale = Math.min(w / modelW, h / modelH) * 1.1;
+  live2dModel.scale.set(scale);
+  live2dModel.anchor.set(0.5, 0.5);
+  live2dModel.position.set(w / 2, h / 2 + h * 0.05);
+}
+
+// ─────────────────────────────────────────────────────────────
+// 状态管理（五色状态切换）
+// ─────────────────────────────────────────────────────────────
+function setState(state) {
+  if (!STATE_CONFIG[state]) return;
+  currentState = state;
+  const cfg = STATE_CONFIG[state];
+
+  // 药丸
+  const pill = document.getElementById('statusPill');
+  pill.className = 'status-pill ' + cfg.pillClass;
+  document.getElementById('statusText').textContent = cfg.label;
+
+  // 光环 + 脉冲环
+  document.getElementById('live2dWrap').className = 'live2d-wrap ' + cfg.ringClass;
+  document.getElementById('pulseRing').className = 'pulse-ring-wrap ' + cfg.pulseClass;
+
+  // 状态气泡（说话时由流式内容实时更新，不改固定文案）
+  const bubble = document.getElementById('statusBubble');
+  bubble.style.borderLeftColor = cfg.bubbleColor;
+  if (state !== 'speak') {
+    bubble.textContent = cfg.bubble;
+  }
+
+  // 演示按钮高亮
+  document.querySelectorAll('.demo-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.state === state);
+  });
+
+  // 说话时开启口型动画（阶段 3：ticker 里由实时音量驱动，这里只做状态标记）
+  if (state === 'speak') startMouth(); else stopMouth();
+
+  // 阶段 3：不同状态切换 Live2D 表情，让形象"看起来"有感情
+  if (live2dModel) {
+    try {
+      if (state === 'think') {
+        // 思考态：切到稍皱眉的表情（f02 约为若皱眉）
+        live2dModel.expression('f02');
+      } else if (state === 'speak') {
+        // 说话态：开心的表情（f00 为开心/默认）
+        live2dModel.expression('f00');
+      } else if (state === 'listen') {
+        // 聆听态：专注表情（f03 稍显认真）
+        live2dModel.expression('f03');
+      } else if (state === 'idle') {
+        // 待机：回默认表情
+        live2dModel.expression('f00');
+      }
+    } catch(e) { /* 表情切换失败时静默忽略 */ }
+  }
+}
+
+// 讲课演示用：直接切状态不走对话流程
+function demoSetState(state) { setState(state); }
+
+// ─────────────────────────────────────────────────────────────
+// 口型控制（阶段 3：由 ticker + Web Audio 实时驱动，此处仅保留接口兼容）
+// ─────────────────────────────────────────────────────────────
+// startMouth / stopMouth 仍在 setState 中调用，但阶段 3 不再用随机 interval。
+// ticker 里会根据 currentState === 'speak' 自动读音量 → 设 mouthTarget。
+// 这里只做 mouthTarget 的兜底归零，防止切状态时嘴巴卡在打开状态。
+function startMouth() {
+  // 阶段 3：口型由 ticker + analyserNode 实时驱动，不再需要随机 interval
+  // 但保留此函数以兼容 setState 调用
+}
+
+function stopMouth() {
+  mouthTarget = 0; // 切到非 speak 状态时立即归零，ticker 会平滑过渡
+}
+
+// ─────────────────────────────────────────────────────────────
+// 工具函数
+// ─────────────────────────────────────────────────────────────
+function getTime() {
+  const now = new Date();
+  return now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function appendBubble(text, type) {
+  const messages = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = `bubble bubble-${type}`;
+  div.innerHTML = `<div>${escapeHtml(text)}</div><div class="bubble-time">${getTime()}</div>`;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  return div;
+}
+
+function appendThinking() {
+  const messages = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'bubble-thinking';
+  div.innerHTML = `
+    <div class="typing-dot"></div>
+    <div class="typing-dot"></div>
+    <div class="typing-dot"></div>
+    <span style="margin-left:4px;font-size:.78rem">让我想想…</span>
+  `;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  return div;
+}
+
+function setInputDisabled(disabled) {
+  document.getElementById('chatInput').disabled = disabled;
+  document.getElementById('sendBtn').disabled = disabled;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 核心：发送消息 → 调后端 SSE → 流式逐字显示
+// ─────────────────────────────────────────────────────────────
+async function sendMessage() {
+  if (isProcessing) return;
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  // 用户手势触发 → 激活 AudioContext（TTS 嘴型同步的前提）
+  // 放在这里确保每次发消息都尝试激活（第一次激活后后续是 no-op）
+  ensureAudioCtx().catch(e => console.warn('[AudioCtx] 激活失败:', e));
+
+  isProcessing = true;
+  input.value = '';
+  setInputDisabled(true);
+
+  // 1. 显示用户气泡
+  appendBubble(text, 'user');
+
+  // 2. 把用户消息加入历史
+  chatHistory.push({ role: 'user', content: text });
+  // 超出最大轮数时从头裁剪（保留最新的 MAX_HISTORY 条）
+  if (chatHistory.length > MAX_HISTORY * 2) {
+    chatHistory.splice(0, chatHistory.length - MAX_HISTORY * 2);
+  }
+
+  // 3. 状态 → 思考橙
+  setState('think');
+  const thinkBubble = appendThinking();
+
+  // 4. 创建 AI 回复气泡（先空，等流式内容填充）
+  const messages = document.getElementById('messages');
+  const aiBubble = document.createElement('div');
+  aiBubble.className = 'bubble bubble-ai';
+  aiBubble.innerHTML = `<div></div><div class="bubble-time">${getTime()}</div>`;
+  const contentDiv = aiBubble.querySelector('div:first-child');
+  const statusBubble = document.getElementById('statusBubble');
+
+  let fullReply = ''; // 收集完整回复，最后存入历史
+  ttsSentenceBuffer = ''; // 重置分句缓冲
+
+  try {
+    // 5. 调后端 SSE 流
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: chatHistory }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`后端错误 ${response.status}: ${errText}`);
+    }
+
+    // 6. 收到第一个字节 → 移除思考气泡，显示 AI 气泡，状态 → 说话紫
+    thinkBubble.remove();
+    messages.appendChild(aiBubble);
+    messages.scrollTop = messages.scrollHeight;
+    setState('speak');
+    statusBubble.textContent = '';
+
+    // 7. 逐行读取 SSE 流
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() || ''; // 最后一行可能不完整，留到下次
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data:')) continue;
+
+        const raw = trimmed.slice(5).trim();
+        if (raw === '[DONE]') break;
+
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.error) {
+            // 后端传来的错误
+            contentDiv.textContent = `[错误] ${parsed.error}`;
+            break;
+          }
+          if (parsed.delta) {
+            // 新 token 追加到气泡
+            fullReply += parsed.delta;
+            contentDiv.textContent = fullReply;
+            messages.scrollTop = messages.scrollHeight;
+            // 同步更新左侧状态气泡（显示最新的一段）
+            statusBubble.textContent = fullReply.slice(-30);
+
+            // ── TTS 流式分句处理 ──
+            // 把 token 加入分句缓冲，遇到句末标点就切出一句合成
+            if (ttsEnabled && ttsServerEnabled) {
+              ttsSentenceBuffer += parsed.delta;
+              ttsFlushSentences(false);
+            }
+          }
+        } catch(e) {
+          // 忽略解析失败的行
+        }
+      }
+    }
+
+    // 流结束：把缓冲里剩余的文字也合成（不足一句的尾巴）
+    if (ttsEnabled && ttsServerEnabled && ttsSentenceBuffer.trim()) {
+      ttsEnqueueSentence(ttsSentenceBuffer.trim());
+      ttsSentenceBuffer = '';
+    }
+
+  } catch (err) {
+    console.error('[Chat] 请求出错:', err);
+    // 移除思考气泡（如果还在）
+    thinkBubble.remove();
+    // 显示错误气泡
+    if (!messages.contains(aiBubble)) messages.appendChild(aiBubble);
+    contentDiv.textContent = `连接出错：${err.message}`;
+    contentDiv.style.color = 'var(--bad, #c0392b)';
+  }
+
+  // 8. 流结束 → 存入历史 → 状态跟随播放队列
+  if (fullReply) {
+    chatHistory.push({ role: 'assistant', content: fullReply });
+  }
+
+  // 如果没有 TTS 在播，直接回待机；如果还在播，状态在 ttsPlayNext 里回待机
+  if (!ttsPlaying && ttsQueue.length === 0) {
+    setState('idle');
+  }
+
+  isProcessing = false;
+  setInputDisabled(false);
+  document.getElementById('chatInput').focus();
+
+  // 阶段 4：对话结束后，延迟 2 秒静默刷新记忆计数
+  // （后端异步抽取需要一点时间，所以延迟一下再拉）
+  setTimeout(refreshMemoryCount, 2000);
+}
+
+// ─────────────────────────────────────────────────────────────
+// TTS：流式分句 + 播放队列（阶段 1）
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * TTS 开关：用户可以点击 topbar 里的按钮开/关朗读
+ */
+function toggleTTS() {
+  ttsEnabled = !ttsEnabled;
+  updateTTSToggleUI();
+  // 关掉 TTS 时清空队列、停止当前播放
+  if (!ttsEnabled) {
+    ttsQueue = [];
+    ttsPlaying = false;
+  }
+  console.log(`[TTS] 朗读已${ttsEnabled ? '开启' : '关闭'}`);
+}
+
+function updateTTSToggleUI() {
+  const btn = document.getElementById('ttsToggle');
+  const icon = document.getElementById('ttsIcon');
+  const label = document.getElementById('ttsLabel');
+  if (!btn) return;
+  if (ttsEnabled && ttsServerEnabled) {
+    btn.classList.add('active');
+    icon.textContent = '🔊';
+    label.textContent = '朗读';
+  } else {
+    btn.classList.remove('active');
+    icon.textContent = '🔇';
+    label.textContent = '静音';
+  }
+  // 后端没开 TTS 时，按钮置灰、禁用
+  btn.disabled = !ttsServerEnabled;
+  btn.title = ttsServerEnabled
+    ? (ttsEnabled ? '点击关闭朗读' : '点击开启朗读')
+    : '服务端 TTS 未开启（TTS_ENABLED=false）';
+}
+
+/**
+ * 把分句缓冲里已经完整的句子切出来，逐句入队合成
+ * flush=true 时不论有没有句末标点都强制切掉剩余内容（流结束时调用）
+ */
+function ttsFlushSentences(flush) {
+  // 句末标点：中文句号、感叹号、问号、省略号（两个点算一个）、换行
+  const sentenceEnd = /[。！？…\n]/;
+
+  let idx;
+  while ((idx = ttsSentenceBuffer.search(sentenceEnd)) !== -1) {
+    // 包含标点本身切出一句
+    let end = idx + 1;
+    // 省略号可能是连续多个 …，一起吞掉
+    while (end < ttsSentenceBuffer.length && /[…]/.test(ttsSentenceBuffer[end])) {
+      end++;
+    }
+
+    const sentence = ttsSentenceBuffer.slice(0, end).trim();
+    ttsSentenceBuffer = ttsSentenceBuffer.slice(end);
+
+    if (sentence.length > 0) {
+      ttsEnqueueSentence(sentence);
+    }
+  }
+
+  // 如果缓冲里的内容太长但没有标点（避免卡住），强制以 50 字为单位切
+  if (ttsSentenceBuffer.length > 50) {
+    const chunk = ttsSentenceBuffer.slice(0, 50).trim();
+    ttsSentenceBuffer = ttsSentenceBuffer.slice(50);
+    if (chunk) ttsEnqueueSentence(chunk);
+  }
+}
+
+/**
+ * 把一句话发给后端 /api/tts 合成，把返回的 blob URL 加入播放队列
+ * 合成是异步的，合成完成后自动触发播放（如果当前没有在播）
+ */
+async function ttsEnqueueSentence(sentence) {
+  // 过滤纯符号、纯空白、极短内容（1 个字没意义）
+  const stripped = sentence.replace(/[\s\p{P}]/gu, '');
+  if (stripped.length < 2) return;
+
+  console.log(`[TTS] 合成句子: "${sentence.slice(0, 30)}"`);
+
+  try {
+    const res = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: sentence }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn(`[TTS] 合成失败 ${res.status}: ${errText}`);
+      return;
+    }
+
+    const blob = await res.blob();
+    if (blob.size < 44) {
+      // WAV 文件头本身 44 字节，小于这个说明内容为空
+      console.warn('[TTS] 返回了空的 WAV，跳过');
+      return;
+    }
+
+    const blobUrl = URL.createObjectURL(blob);
+    ttsQueue.push(blobUrl);
+
+    // 如果当前没在播，立即开始
+    if (!ttsPlaying) {
+      ttsPlayNext();
+    }
+  } catch (err) {
+    console.warn('[TTS] 合成请求出错:', err.message);
+  }
+}
+
+/**
+ * 播放队列里的下一个音频（阶段 3：改用 Web Audio API，让 analyser 分析音量）
+ *
+ * 流程：blob URL → fetch ArrayBuffer → AudioContext.decodeAudioData
+ *       → AudioBufferSourceNode → analyserNode → destination
+ * 这样 analyserNode 就能实时读到播放中的音频数据，ticker 里用来驱动口型。
+ */
+async function ttsPlayNext() {
+  if (ttsQueue.length === 0) {
+    ttsPlaying = false;
+    currentTTSSource = null;
+    // 阶段 5：TTS 全部播完，停止打断监测
+    stopBargeInMonitor();
+    // 队列清空、LLM 也不在处理了 → 回待机
+    if (!isProcessing) {
+      setState('idle');
+    }
+    return;
+  }
+
+  ttsPlaying = true;
+  const blobUrl = ttsQueue.shift();
+
+  // 播放时状态走"说话紫"
+  setState('speak');
+
+  // ── 路径 A：Web Audio API（AudioContext 已激活）──
+  if (audioCtxReady && audioCtx && analyserNode) {
+    try {
+      // 把 blob URL 的内容读成 ArrayBuffer
+      const resp = await fetch(blobUrl);
+      const arrayBuf = await resp.arrayBuffer();
+      URL.revokeObjectURL(blobUrl);
+
+      // 解码音频（WAV → AudioBuffer）
+      const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
+
+      // 创建 source → analyser → destination 路由
+      const source = audioCtx.createBufferSource();
+      source.buffer = audioBuf;
+      source.connect(analyserNode);
+      // analyserNode 已在初始化时连接到 destination，无需重复连接
+
+      // 阶段 5：记录当前 source，打断时用来 stop
+      currentTTSSource = source;
+
+      source.onended = () => {
+        source.disconnect();
+        currentTTSSource = null;
+        // TTS 播放期间如果打断监测正在运行，播完一句后继续
+        ttsPlayNext(); // 播完继续下一句
+      };
+
+      source.start(0);
+      console.log('[TTS/WebAudio] 开始播放，时长:', audioBuf.duration.toFixed(2), 's');
+
+      // 阶段 5：TTS 开始播放时，启动麦克风打断监测
+      if (bargeInEnabled && bargeInServerEnabled) {
+        startBargeInMonitor();
+      }
+      return;
+    } catch (err) {
+      // Web Audio 路径失败，回退到普通 Audio 元素
+      console.warn('[TTS/WebAudio] 解码或播放失败，回退到 <audio>:', err.message);
+    }
+  }
+
+  // ── 路径 B：兜底用 <audio> 元素（AudioContext 未激活时）──
+  // 这种情况下 analyser 读不到数据，嘴型会保持闭合，但对话功能正常
+  const audio = new Audio(blobUrl);
+  audio.onended = () => {
+    URL.revokeObjectURL(blobUrl);
+    ttsPlayNext();
+  };
+  audio.onerror = (e) => {
+    console.warn('[TTS] 播放出错:', e);
+    URL.revokeObjectURL(blobUrl);
+    ttsPlayNext();
+  };
+  audio.play().catch(err => {
+    console.warn('[TTS] play() 被阻止（自动播放策略）:', err.message);
+    URL.revokeObjectURL(blobUrl);
+    ttsPlayNext();
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// 语音打断（阶段 5）
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 打断开关：用户点击 topbar 的打断按钮
+ */
+function toggleBargeIn() {
+  if (!bargeInServerEnabled) return;
+  bargeInEnabled = !bargeInEnabled;
+  updateBargeInToggleUI();
+  // 关掉打断时，停止已在运行的监测
+  if (!bargeInEnabled) stopBargeInMonitor();
+  console.log(`[BargeIn] 打断已${bargeInEnabled ? '开启' : '关闭'}`);
+}
+
+function updateBargeInToggleUI() {
+  const btn = document.getElementById('bargeInToggle');
+  const label = document.getElementById('bargeInLabel');
+  if (!btn) return;
+  if (bargeInEnabled && bargeInServerEnabled) {
+    btn.classList.add('active');
+    label.textContent = '打断';
+  } else {
+    btn.classList.remove('active');
+    label.textContent = '打断(关)';
+  }
+  btn.disabled = !bargeInServerEnabled;
+  btn.title = bargeInServerEnabled
+    ? (bargeInEnabled ? '点击关闭打断：小艾说话时你开口不会打断它' : '点击开启打断：小艾说话时你开口可打断')
+    : '服务端打断功能未开启（BARGE_IN_ENABLED=false）';
+}
+
+/**
+ * 启动麦克风打断监测：TTS 播放期间调用。
+ * 使用独立的 AudioContext + getUserMedia 流，只监测麦克风输入，
+ * 不干扰 TTS 播放用的 audioCtx。
+ */
+async function startBargeInMonitor() {
+  // 已在运行则跳过
+  if (bargeInRAF !== null) return;
+  if (!bargeInEnabled || !bargeInServerEnabled) return;
+
+  try {
+    // 请求麦克风权限（如果已有流且 track 还活着，复用）
+    if (!bargeInStream || bargeInStream.getTracks().every(t => t.readyState === 'ended')) {
+      bargeInStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    }
+
+    // 创建独立 AudioContext 给打断监测用
+    if (!bargeInAudioCtx || bargeInAudioCtx.state === 'closed') {
+      bargeInAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (bargeInAudioCtx.state === 'suspended') {
+      await bargeInAudioCtx.resume();
+    }
+
+    bargeInAnalyser = bargeInAudioCtx.createAnalyser();
+    bargeInAnalyser.fftSize = 256;
+    bargeInAnalyser.smoothingTimeConstant = 0.3; // 打断监测不需要那么平滑，响应要快
+    bargeInBuffer = new Uint8Array(bargeInAnalyser.fftSize);
+
+    const source = bargeInAudioCtx.createMediaStreamSource(bargeInStream);
+    source.connect(bargeInAnalyser);
+    // 注意：打断监测的 analyser 不连接到 destination，防止麦克风漏音
+
+    bargeInFrameCount = 0;
+
+    function checkFrame() {
+      // 如果 TTS 已经停止播放了，也不用继续监测
+      if (!ttsPlaying) {
+        stopBargeInMonitor();
+        return;
+      }
+
+      bargeInAnalyser.getByteTimeDomainData(bargeInBuffer);
+
+      // 计算 RMS 音量
+      let sum = 0;
+      for (let i = 0; i < bargeInBuffer.length; i++) {
+        const v = (bargeInBuffer[i] - 128) / 128;
+        sum += v * v;
+      }
+      const rms = Math.sqrt(sum / bargeInBuffer.length);
+
+      if (rms > BARGE_IN_THRESHOLD) {
+        bargeInFrameCount++;
+        if (bargeInFrameCount >= BARGE_IN_FRAMES) {
+          // 触发打断！
+          console.log(`[BargeIn] 检测到用户说话（rms=${rms.toFixed(3)}），触发打断`);
+          triggerBargeIn();
+          return; // 停止 rAF 循环
+        }
+      } else {
+        // 低于阈值时重置计数（防止零散噪音误触发）
+        bargeInFrameCount = Math.max(0, bargeInFrameCount - 1);
+      }
+
+      bargeInRAF = requestAnimationFrame(checkFrame);
+    }
+
+    bargeInRAF = requestAnimationFrame(checkFrame);
+    console.log('[BargeIn] 打断监测已启动');
+  } catch (err) {
+    console.warn('[BargeIn] 打断监测启动失败（可能无麦克风权限）:', err.message);
+    // 打断监测失败不影响 TTS 正常播放
+  }
+}
+
+/**
+ * 停止打断监测：TTS 播放结束 / 打断触发后调用
+ */
+function stopBargeInMonitor() {
+  if (bargeInRAF !== null) {
+    cancelAnimationFrame(bargeInRAF);
+    bargeInRAF = null;
+  }
+  bargeInFrameCount = 0;
+  // 注意：不释放 bargeInStream，下次 TTS 播放时复用（避免重复请求麦克风权限）
+}
+
+/**
+ * 执行打断：停止 TTS 播放 → 清空队列 → 切到聆听态 → 开始 ASR
+ */
+function triggerBargeIn() {
+  stopBargeInMonitor();
+
+  // 停止当前正在播放的 AudioBufferSource
+  if (currentTTSSource) {
+    try {
+      currentTTSSource.onended = null; // 防止触发 ttsPlayNext
+      currentTTSSource.stop();
+      currentTTSSource.disconnect();
+    } catch(e) { /* 忽略 already stopped */ }
+    currentTTSSource = null;
+  }
+
+  // 清空 TTS 队列（未播的句子全部丢弃）
+  ttsQueue = [];
+  ttsPlaying = false;
+  ttsSentenceBuffer = '';
+
+  // 视觉反馈：光环快速从紫切绿（打断动画）
+  const wrap = document.getElementById('live2dWrap');
+  wrap.classList.add('barge-in-anim');
+  setTimeout(() => wrap.classList.remove('barge-in-anim'), 400);
+
+  showToast('打断！说吧 ~', 1500);
+  console.log('[BargeIn] 打断成功，切入聆听态');
+
+  // 切到聆听态，开始 ASR
+  if (asrEnabled) {
+    if (asrProvider === 'whisper') {
+      startRecordingWhisper();
+    } else {
+      startRecordingWebSpeech();
+    }
+  } else {
+    setState('listen');
+    setTimeout(() => setState('idle'), 1000);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 唤醒词（阶段 5）
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 唤醒词常驻监听开关：用户点击 topbar 的唤醒按钮
+ */
+function toggleWakeWord() {
+  if (!wakeWordServerEnabled) return;
+  wakeWordEnabled = !wakeWordEnabled;
+  updateWakeWordToggleUI();
+  if (wakeWordEnabled) {
+    startWakeWordListen();
+  } else {
+    stopWakeWordListen();
+  }
+  console.log(`[WakeWord] 唤醒词监听已${wakeWordEnabled ? '开启' : '关闭'}`);
+}
+
+function updateWakeWordToggleUI() {
+  const btn = document.getElementById('wakeWordToggle');
+  const label = document.getElementById('wakeWordLabel');
+  const bar = document.getElementById('wakeListenBar');
+  if (!btn) return;
+  if (wakeWordEnabled && wakeWordServerEnabled) {
+    btn.classList.add('active');
+    label.textContent = '唤醒(开)';
+    if (bar) bar.classList.add('active');
+  } else {
+    btn.classList.remove('active');
+    label.textContent = '唤醒';
+    if (bar) bar.classList.remove('active');
+  }
+  btn.disabled = !wakeWordServerEnabled;
+  btn.title = wakeWordServerEnabled
+    ? (wakeWordEnabled
+        ? `点击关闭唤醒词监听（当前监听：${wakeWords.join('/')}）`
+        : `点击开启唤醒词监听，喊「${wakeWords[0] || '小艾'}」自动激活`)
+    : '服务端唤醒词功能未开启（WAKE_WORD_ENABLED=false）';
+}
+
+/**
+ * 启动唤醒词持续监听（Web Speech API continuous 模式）
+ *
+ * 工作原理：开 continuous=true 的 SpeechRecognition，识别结果里出现唤醒词就触发。
+ * 这是浏览器端方案，开箱即用，不需要 Python 服务。
+ * 缺点：需要联网（Chrome/Edge 的 Web Speech 走 Google 服务），国内需要 VPN。
+ *
+ * 如果联网不方便，openWakeWord（Python + ONNX）可以做本地唤醒，
+ * 但"小艾"中文唤醒词需要自训练模型（见 README 进阶部分）。
+ */
+function startWakeWordListen() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showToast('浏览器不支持语音识别（需要 Chrome/Edge），无法开启唤醒词', 3000);
+    wakeWordEnabled = false;
+    updateWakeWordToggleUI();
+    return;
+  }
+
+  if (wakeWordActive) return; // 已在运行
+
+  wakeWordRecognition = new SpeechRecognition();
+  wakeWordRecognition.lang = 'zh-CN';
+  wakeWordRecognition.continuous = true;      // 持续监听，不自动停
+  wakeWordRecognition.interimResults = true;  // 中间结果也检查（响应更快）
+  wakeWordRecognition.maxAlternatives = 3;    // 多候选词，提高"小艾"识别率
+
+  wakeWordActive = true;
+
+  wakeWordRecognition.onresult = (event) => {
+    // 遍历所有新增的识别结果（包含候选词）
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      for (let j = 0; j < event.results[i].length; j++) {
+        const transcript = event.results[i][j].transcript;
+        // 检查是否包含任一唤醒词
+        const matched = wakeWords.some(word =>
+          transcript.includes(word) || transcript.toLowerCase().includes(word.toLowerCase())
+        );
+        if (matched) {
+          console.log(`[WakeWord] 检测到唤醒词，识别文本: "${transcript}"`);
+          handleWakeWordTriggered();
+          return;
+        }
+      }
+    }
+  };
+
+  wakeWordRecognition.onend = () => {
+    // continuous 模式下，如果识别服务中断（超时/网络等），自动重启
+    if (wakeWordEnabled && wakeWordActive) {
+      console.log('[WakeWord] 识别服务中断，自动重启…');
+      setTimeout(() => {
+        if (wakeWordEnabled && wakeWordActive) {
+          try { wakeWordRecognition.start(); } catch(e) {}
+        }
+      }, 500);
+    }
+  };
+
+  wakeWordRecognition.onerror = (event) => {
+    console.warn('[WakeWord] 识别出错:', event.error);
+    if (event.error === 'not-allowed') {
+      showToast('麦克风权限被拒绝，无法开启唤醒词监听', 3000);
+      wakeWordEnabled = false;
+      wakeWordActive = false;
+      updateWakeWordToggleUI();
+    }
+    // 其他错误（network/no-speech）会触发 onend，由 onend 自动重启
+  };
+
+  try {
+    wakeWordRecognition.start();
+    console.log(`[WakeWord] 唤醒词监听已启动，监听词: ${wakeWords.join('/')}`);
+  } catch(e) {
+    console.warn('[WakeWord] 启动失败:', e.message);
+    wakeWordActive = false;
+  }
+}
+
+/**
+ * 停止唤醒词监听
+ */
+function stopWakeWordListen() {
+  wakeWordActive = false;
+  if (wakeWordRecognition) {
+    try { wakeWordRecognition.stop(); } catch(e) {}
+    wakeWordRecognition = null;
+  }
+  console.log('[WakeWord] 唤醒词监听已停止');
+}
+
+/**
+ * 唤醒词触发后的处理：
+ * 1. 如果 TTS 正在播放 → 先打断
+ * 2. 切到 wake 态（金色脉冲）
+ * 3. 短暂停留后自动进入聆听态
+ */
+function handleWakeWordTriggered() {
+  // 防止连续触发（唤醒后短暂屏蔽）
+  if (isRecording || (currentState === 'wake' && !ttsPlaying)) return;
+
+  // 如果 TTS 正在播 → 先打断
+  if (ttsPlaying) {
+    triggerBargeIn();
+    return; // triggerBargeIn 会进入聆听态
+  }
+
+  // 如果正在处理（LLM 流式输出中）→ 忽略唤醒（避免打断思考流程）
+  if (isProcessing) return;
+
+  setState('wake');
+  showToast('嗯？叫我了吗？说吧！', 1500);
+
+  // 停止唤醒词监听期间进行 ASR（避免 ASR 和唤醒词监听冲突）
+  // ASR 结束后，如果唤醒词开关还开着，会在 submitVoiceText/idle 后重启
+  const wasWakeActive = wakeWordActive;
+  if (wasWakeActive) stopWakeWordListen();
+
+  // 短暂的唤醒动画后，自动进入聆听
+  setTimeout(() => {
+    if (!isRecording && !isProcessing) {
+      if (asrEnabled) {
+        // 唤醒 → ASR，ASR 结束后如果唤醒词开关还开着，在 submitVoiceText 后重启
+        _pendingWakeWordRestart = wasWakeActive;
+        if (asrProvider === 'whisper') {
+          startRecordingWhisper();
+        } else {
+          startRecordingWebSpeech();
+        }
+      } else {
+        setState('listen');
+      }
+    }
+  }, 600);
+}
+
+// 唤醒词 ASR 结束后是否需要重启唤醒监听
+let _pendingWakeWordRestart = false;
+
+// ─────────────────────────────────────────────────────────────
+// 语音按钮 UI 更新
+// ─────────────────────────────────────────────────────────────
+function updateVoiceBtnUI() {
+  const btn = document.getElementById('voiceBtn');
+  const btnInline = document.getElementById('micBtnInline');
+  if (!btn) return;
+
+  if (!asrEnabled) {
+    // 后端 ASR 关闭时禁用按钮
+    btn.disabled = true;
+    btn.title = '语音识别未开启（ASR_ENABLED=false）';
+    document.getElementById('voiceBtnText').textContent = '语音（已禁用）';
+  } else {
+    btn.disabled = false;
+    btn.title = asrProvider === 'webspeech'
+      ? '点击开始语音输入（浏览器原生识别）'
+      : '点击开始语音输入（本地 Whisper 识别）';
+    if (!isRecording) {
+      document.getElementById('voiceBtnText').textContent = '说话';
+    }
+  }
+  if (btnInline) {
+    btnInline.disabled = !asrEnabled;
+    btnInline.title = btn.title;
+  }
+}
+
+/** 显示临时 Toast 提示 */
+function showToast(msg, durationMs = 2500) {
+  const tip = document.createElement('div');
+  tip.style.cssText = `
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:rgba(44,36,23,.85);color:#fff;
+    padding:8px 18px;border-radius:999px;font-size:.78rem;
+    z-index:9999;pointer-events:none;
+    animation:fadeInUp .2s ease-out;
+  `;
+  tip.textContent = msg;
+  document.body.appendChild(tip);
+  setTimeout(() => tip.remove(), durationMs);
+}
+
+// ─────────────────────────────────────────────────────────────
+// 语音按钮（阶段 2：ASR 语音输入）
+// ─────────────────────────────────────────────────────────────
+function onVoiceClick() {
+  if (!asrEnabled) {
+    showToast('语音识别未开启，请检查 .env 中 ASR_ENABLED=true');
+    return;
+  }
+  if (isProcessing) {
+    showToast('小艾正在回复中，请稍候…');
+    return;
+  }
+
+  // 用户手势 → 激活 AudioContext（TTS 嘴型同步的前提）
+  ensureAudioCtx().catch(e => console.warn('[AudioCtx] 激活失败:', e));
+
+  if (isRecording) {
+    // 已在录音 → 停止
+    stopRecording();
+  } else {
+    // 未录音 → 开始
+    if (asrProvider === 'whisper') {
+      startRecordingWhisper();
+    } else {
+      startRecordingWebSpeech();
+    }
+  }
+}
+
+/** 进入录音状态：更新 UI */
+function enterListenState() {
+  isRecording = true;
+  setState('listen');
+
+  const btn = document.getElementById('voiceBtn');
+  btn.className = 'voice-btn voice-btn-listening';
+  document.getElementById('voiceBtnIcon').style.display = 'none';
+  document.getElementById('voiceBtnWave').style.display = 'inline-flex';
+  document.getElementById('voiceBtnText').textContent = '停止';
+
+  const btnInline = document.getElementById('micBtnInline');
+  if (btnInline) btnInline.classList.add('active');
+}
+
+/** 退出录音状态：恢复 UI */
+function exitListenState() {
+  isRecording = false;
+
+  const btn = document.getElementById('voiceBtn');
+  btn.className = 'voice-btn voice-btn-default';
+  document.getElementById('voiceBtnIcon').style.display = 'inline-flex';
+  document.getElementById('voiceBtnWave').style.display = 'none';
+  document.getElementById('voiceBtnText').textContent = '说话';
+
+  const btnInline = document.getElementById('micBtnInline');
+  if (btnInline) btnInline.classList.remove('active');
+}
+
+// ──────────────────────────────────────────────────────
+// WebSpeech 模式（浏览器原生，Chrome 直接用）
+// ──────────────────────────────────────────────────────
+function startRecordingWebSpeech() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showToast('你的浏览器不支持语音识别，请用 Chrome 或 Edge 试试');
+    return;
+  }
+
+  webSpeechRecognition = new SpeechRecognition();
+  webSpeechRecognition.lang = 'zh-CN';
+  webSpeechRecognition.continuous = false;   // 说完一句自动停
+  webSpeechRecognition.interimResults = true; // 实时显示中间结果
+
+  enterListenState();
+  document.getElementById('statusBubble').textContent = '我在听，说吧…';
+
+  let finalTranscript = '';
+  let interimTranscript = '';
+
+  webSpeechRecognition.onresult = (event) => {
+    finalTranscript = '';
+    interimTranscript = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const t = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += t;
+      } else {
+        interimTranscript += t;
+      }
+    }
+    // 实时更新状态气泡（中间结果用斜体灰色显示感）
+    const bubble = document.getElementById('statusBubble');
+    bubble.textContent = (finalTranscript || interimTranscript || '我在听…');
+    console.log('[ASR/webspeech] 中间结果:', interimTranscript, '最终:', finalTranscript);
+  };
+
+  webSpeechRecognition.onend = () => {
+    exitListenState();
+    const text = finalTranscript.trim();
+    if (text) {
+      console.log('[ASR/webspeech] 识别完成:', text);
+      submitVoiceText(text);
+    } else {
+      setState('idle');
+      if (finalTranscript === '' && interimTranscript === '') {
+        showToast('没听清楚，再说一遍？');
+      }
+    }
+  };
+
+  webSpeechRecognition.onerror = (event) => {
+    exitListenState();
+    console.error('[ASR/webspeech] 识别出错:', event.error);
+    switch (event.error) {
+      case 'not-allowed':
+        showToast('麦克风权限被拒绝了，请在浏览器地址栏点击锁图标开启麦克风权限');
+        break;
+      case 'no-speech':
+        showToast('没有检测到声音，请靠近麦克风再试');
+        break;
+      case 'network':
+        showToast('网络识别出错（WebSpeech 需要联网），可以换成 whisper 本地模式');
+        break;
+      default:
+        showToast(`语音识别出错（${event.error}），请重试`);
+    }
+    setState('idle');
+  };
+
+  webSpeechRecognition.start();
+  console.log('[ASR/webspeech] 开始录音');
+}
+
+function stopRecording() {
+  if (asrProvider === 'webspeech' && webSpeechRecognition) {
+    webSpeechRecognition.stop();
+    webSpeechRecognition = null;
+  } else if (asrProvider === 'whisper' && mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+}
+
+// ──────────────────────────────────────────────────────
+// Whisper 模式（本地 mlx-whisper，需起 asr_server.py）
+// ──────────────────────────────────────────────────────
+async function startRecordingWhisper() {
+  // 请求麦克风权限
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      showToast('麦克风权限被拒绝了，请在浏览器地址栏点击锁图标开启麦克风权限');
+    } else {
+      showToast(`无法访问麦克风：${err.message}`);
+    }
+    console.error('[ASR/whisper] 麦克风权限失败:', err);
+    return;
+  }
+
+  enterListenState();
+  document.getElementById('statusBubble').textContent = '我在听，说吧…';
+  mediaChunks = [];
+
+  // 优先用 webm/opus（体积小），Safari 用 mp4
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+    ? 'audio/webm;codecs=opus'
+    : 'audio/mp4';
+
+  mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) mediaChunks.push(e.data);
+  };
+
+  mediaRecorder.onstop = async () => {
+    // 停止麦克风流
+    stream.getTracks().forEach(t => t.stop());
+    exitListenState();
+
+    if (mediaChunks.length === 0) {
+      showToast('没录到声音，请再试一次');
+      setState('idle');
+      return;
+    }
+
+    // 合并音频 blob，上传到 /api/asr
+    const blob = new Blob(mediaChunks, { type: mimeType });
+    mediaChunks = [];
+
+    console.log(`[ASR/whisper] 录音完成，大小: ${blob.size} bytes，正在识别…`);
+    setState('think');
+    document.getElementById('statusBubble').textContent = '识别中…';
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', blob, 'recording.webm');
+
+      const res = await fetch('/api/asr', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || `服务器错误 ${res.status}`);
+      }
+
+      const text = (data.text || '').trim();
+      if (text) {
+        console.log('[ASR/whisper] 识别结果:', text);
+        submitVoiceText(text);
+      } else {
+        showToast('没听清楚，再说一遍？');
+        setState('idle');
+      }
+    } catch (err) {
+      console.error('[ASR/whisper] 识别失败:', err);
+      showToast(`识别出错：${err.message}`);
+      setState('idle');
+    }
+  };
+
+  mediaRecorder.onerror = (e) => {
+    stream.getTracks().forEach(t => t.stop());
+    exitListenState();
+    console.error('[ASR/whisper] MediaRecorder 出错:', e);
+    showToast('录音出错，请重试');
+    setState('idle');
+  };
+
+  mediaRecorder.start();
+  console.log('[ASR/whisper] 开始录音');
+}
+
+/**
+ * 语音识别完成后，把文字填入输入框并自动发送
+ * （与文字输入走同一条 sendMessage 链路，复用阶段 0/1 的流程）
+ */
+function submitVoiceText(text) {
+  const input = document.getElementById('chatInput');
+  input.value = text;
+  // 短暂显示识别出的文字（让用户看到识别结果），然后发送
+  setTimeout(() => {
+    sendMessage();
+    // 阶段 5：ASR 发送后，如果唤醒词开关开着，重启唤醒词监听
+    if (_pendingWakeWordRestart && wakeWordEnabled) {
+      _pendingWakeWordRestart = false;
+      setTimeout(() => {
+        if (wakeWordEnabled && !wakeWordActive) {
+          startWakeWordListen();
+        }
+      }, 1000); // 等发送完成后再重启，避免 ASR 和唤醒词冲突
+    }
+  }, 300);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enter 键发送
+// ─────────────────────────────────────────────────────────────
+document.getElementById('chatInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !isProcessing) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// 记忆管理面板（阶段 4）
+// ─────────────────────────────────────────────────────────────
+
+// 当前缓存的记忆和画像数据
+let memoriesCache = [];
+let profileCache = {};
+
+/** 打开记忆面板：拉取最新数据后渲染 */
+async function openMemoryPanel() {
+  const overlay = document.getElementById('memoryOverlay');
+  overlay.classList.remove('hidden');
+  await loadMemoryData();
+}
+
+function closeMemoryPanel() {
+  document.getElementById('memoryOverlay').classList.add('hidden');
+  // 关闭时收起编辑器
+  hideProfileEditor();
+  hideAddMemoryForm();
+}
+
+/** 点击遮罩层关闭面板（点到面板内部不关闭） */
+function onOverlayClick(e) {
+  if (e.target === document.getElementById('memoryOverlay')) {
+    closeMemoryPanel();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 阶段 6：真人形象说明面板
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 打开真人形象说明面板。
+ *
+ * 逻辑：
+ * - AVATAR_PROVIDER=live2d（默认）→ 弹说明面板，诚实告知技术边界
+ * - AVATAR_PROVIDER=realhuman 且 REALHUMAN_SERVICE_URL 已配置 → 弹提示"已接入云端，可在此切换"
+ *   （TODO：未来实现实际切换逻辑 —— 见 docs/真人形象-云端部署指南.md 的接入步骤）
+ * - AVATAR_PROVIDER=realhuman 但 URL 未配置 → 弹说明面板，引导配置
+ */
+function openRealHumanPanel() {
+  document.getElementById('rhOverlay').classList.remove('hidden');
+}
+
+function closeRealHumanPanel() {
+  document.getElementById('rhOverlay').classList.add('hidden');
+}
+
+/** 点击遮罩层关闭真人面板 */
+function onRhOverlayClick(e) {
+  if (e.target === document.getElementById('rhOverlay')) {
+    closeRealHumanPanel();
+  }
+}
+
+/**
+ * 点击"查看云端部署指南"：在新标签打开本地 docs 文件（若服务提供静态文件），
+ * 或提示用户去项目 docs 目录查看。
+ *
+ * TODO（接入真人时填充）：云端 LiveTalking 服务跑起来后，替换此逻辑为实际切换。
+ */
+function openCloudGuide() {
+  // 尝试打开 /docs/真人形象-云端部署指南.md（如果后端提供静态服务的话）
+  // 更友好的方式：直接在面板里嵌内容。这里用 alert 给出路径提示，足够教学用途。
+  alert(
+    '云端部署指南文件路径：\n' +
+    'docs/真人形象-云端部署指南.md\n\n' +
+    '用文本编辑器或 VS Code 打开即可查看完整步骤。\n' +
+    '（涵盖：Vast.ai 租机 → Docker 部署 LiveTalking → 接入本项目）'
+  );
+}
+
+/** 从后端拉取记忆和画像，渲染到面板 */
+async function loadMemoryData() {
+  try {
+    const [memRes, profileRes] = await Promise.all([
+      fetch('/api/memory'),
+      fetch('/api/profile'),
+    ]);
+
+    if (memRes.ok) {
+      const data = await memRes.json();
+      memoriesCache = data.memories || [];
+      renderMemories(memoriesCache);
+    }
+
+    if (profileRes.ok) {
+      const data = await profileRes.json();
+      profileCache = data.profile || {};
+      renderProfile(profileCache);
+    }
+
+    // 更新顶栏按钮状态（有记忆时高亮）
+    updateMemoryBtnUI();
+  } catch (err) {
+    console.error('[Memory] 加载失败:', err.message);
+  }
+}
+
+/** 渲染用户画像字段 */
+function renderProfile(profile) {
+  const fields = document.getElementById('profileFields');
+  const keys = Object.keys(profile);
+  if (keys.length === 0) {
+    fields.innerHTML = '<span class="mp-profile-empty">暂无画像信息 — 和小艾聊一聊自己，它会记住的</span>';
+    return;
+  }
+  fields.innerHTML = keys.map(k => `
+    <div class="mp-profile-field">
+      <span class="mp-field-label">${escapeHtml(k)}</span>
+      <span class="mp-field-value">${escapeHtml(profile[k])}</span>
+    </div>
+  `).join('');
+}
+
+/** 渲染记忆列表 */
+function renderMemories(memories) {
+  const list = document.getElementById('memoriesList');
+  if (memories.length === 0) {
+    list.innerHTML = '<div class="mp-empty">暂无记忆 — 开始对话，小艾会自动记录重要的事</div>';
+    return;
+  }
+  list.innerHTML = memories.map(m => {
+    const typeLabel = m.type === 'manual' ? '手动' : '对话';
+    const typeCls = m.type === 'manual' ? 'type-manual' : 'type-convo';
+    return `
+      <div class="mp-mem-card" id="mem-card-${m.id}">
+        <div class="mp-mem-meta">
+          <span class="mp-mem-type-badge ${typeCls}">${typeLabel}</span>
+          <span>${m.created_at}</span>
+        </div>
+        <div class="mp-mem-content" id="mem-content-${m.id}">${escapeHtml(m.content)}</div>
+        <div class="mp-mem-actions">
+          <button class="mp-action-btn" onclick="showEditMemory(${m.id}, \`${m.content.replace(/`/g, "'")}\`)">编辑</button>
+          <button class="mp-action-btn danger" onclick="showDeleteConfirm(${m.id})">删除</button>
+        </div>
+        <!-- 内联编辑区（默认隐藏）-->
+        <div class="mp-mem-edit" id="mem-edit-${m.id}">
+          <textarea class="mp-mem-edit-input" id="mem-edit-input-${m.id}"></textarea>
+          <div class="mp-mem-edit-row">
+            <button class="mp-btn-cancel" onclick="hideEditMemory(${m.id})">取消</button>
+            <button class="mp-btn-save" onclick="submitEditMemory(${m.id})">保存</button>
+          </div>
+        </div>
+        <!-- 内联删除确认（默认隐藏）-->
+        <div class="mp-delete-confirm" id="mem-del-${m.id}">
+          <span>确认删除这条记忆？</span>
+          <div class="mp-confirm-btns">
+            <button class="mp-confirm-no" onclick="hideDeleteConfirm(${m.id})">取消</button>
+            <button class="mp-confirm-yes" onclick="submitDeleteMemory(${m.id})">删除</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/** 更新顶栏记忆按钮 UI */
+function updateMemoryBtnUI() {
+  const btn = document.getElementById('memoryBtn');
+  const label = document.getElementById('memoryBtnLabel');
+  const total = memoriesCache.length + Object.keys(profileCache).length;
+  if (total > 0) {
+    btn.classList.add('has-memory');
+    label.textContent = `记忆 ${memoriesCache.length}`;
+  } else {
+    btn.classList.remove('has-memory');
+    label.textContent = '记忆';
+  }
+}
+
+// ── 画像编辑 ──────────────────────────────────────────────────
+
+function toggleProfileEditor() {
+  const editor = document.getElementById('profileEditor');
+  const isVisible = editor.classList.contains('visible');
+  if (isVisible) {
+    hideProfileEditor();
+  } else {
+    // 打开时：把现有画像转成文本填入 textarea
+    const lines = Object.entries(profileCache).map(([k, v]) => `${k}: ${v}`).join('\n');
+    document.getElementById('profileTextarea').value = lines;
+    editor.classList.add('visible');
+    document.getElementById('profileEditBtn').textContent = '收起';
+  }
+}
+
+function hideProfileEditor() {
+  document.getElementById('profileEditor').classList.remove('visible');
+  const btn = document.getElementById('profileEditBtn');
+  if (btn) btn.textContent = '编辑画像';
+}
+
+async function saveProfileFromEditor() {
+  const text = document.getElementById('profileTextarea').value.trim();
+  const newProfile = {};
+
+  // 解析 "key: value" 格式的文本
+  for (const line of text.split('\n')) {
+    const colonIdx = line.indexOf(':');
+    if (colonIdx === -1) continue;
+    const key = line.slice(0, colonIdx).trim();
+    const value = line.slice(colonIdx + 1).trim();
+    if (key && value) newProfile[key] = value;
+  }
+
+  try {
+    const res = await fetch('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile: newProfile }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      profileCache = data.profile || {};
+      renderProfile(profileCache);
+      hideProfileEditor();
+      updateMemoryBtnUI();
+      showToast('画像已保存');
+    } else {
+      showToast('保存失败，请重试');
+    }
+  } catch (err) {
+    console.error('[Profile] 保存失败:', err);
+    showToast('网络错误：' + err.message);
+  }
+}
+
+// ── 记忆编辑 ──────────────────────────────────────────────────
+
+function showEditMemory(id, content) {
+  const editDiv = document.getElementById(`mem-edit-${id}`);
+  const input = document.getElementById(`mem-edit-input-${id}`);
+  if (editDiv && input) {
+    input.value = content;
+    editDiv.classList.add('visible');
+    input.focus();
+  }
+  // 关闭可能打开的删除确认
+  hideDeleteConfirm(id);
+}
+
+function hideEditMemory(id) {
+  const editDiv = document.getElementById(`mem-edit-${id}`);
+  if (editDiv) editDiv.classList.remove('visible');
+}
+
+async function submitEditMemory(id) {
+  const input = document.getElementById(`mem-edit-input-${id}`);
+  const content = input ? input.value.trim() : '';
+  if (!content) {
+    showToast('内容不能为空');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/memory/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    if (res.ok) {
+      // 更新本地缓存和 DOM
+      const mem = memoriesCache.find(m => m.id === id);
+      if (mem) mem.content = content;
+      const contentEl = document.getElementById(`mem-content-${id}`);
+      if (contentEl) contentEl.textContent = content;
+      hideEditMemory(id);
+      showToast('记忆已更新');
+    } else {
+      showToast('更新失败，请重试');
+    }
+  } catch (err) {
+    console.error('[Memory] 更新失败:', err);
+    showToast('网络错误：' + err.message);
+  }
+}
+
+// ── 记忆删除 ──────────────────────────────────────────────────
+
+function showDeleteConfirm(id) {
+  const delDiv = document.getElementById(`mem-del-${id}`);
+  if (delDiv) delDiv.classList.add('visible');
+  hideEditMemory(id);
+}
+
+function hideDeleteConfirm(id) {
+  const delDiv = document.getElementById(`mem-del-${id}`);
+  if (delDiv) delDiv.classList.remove('visible');
+}
+
+async function submitDeleteMemory(id) {
+  try {
+    const res = await fetch(`/api/memory/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      // 从缓存移除并重渲染
+      memoriesCache = memoriesCache.filter(m => m.id !== id);
+      renderMemories(memoriesCache);
+      updateMemoryBtnUI();
+      showToast('记忆已删除');
+    } else {
+      showToast('删除失败，请重试');
+    }
+  } catch (err) {
+    console.error('[Memory] 删除失败:', err);
+    showToast('网络错误：' + err.message);
+  }
+}
+
+// ── 手动添加记忆 ──────────────────────────────────────────────
+
+function showAddMemoryForm() {
+  const form = document.getElementById('addMemoryForm');
+  form.classList.add('visible');
+  document.getElementById('addMemoryInput').focus();
+}
+
+function hideAddMemoryForm() {
+  document.getElementById('addMemoryForm').classList.remove('visible');
+  document.getElementById('addMemoryInput').value = '';
+}
+
+async function submitAddMemory() {
+  const input = document.getElementById('addMemoryInput');
+  const content = input ? input.value.trim() : '';
+  if (!content) {
+    showToast('内容不能为空');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/memory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, type: 'manual' }),
+    });
+    if (res.ok) {
+      const newMem = await res.json();
+      memoriesCache.unshift({
+        id: newMem.id,
+        content: newMem.content,
+        type: newMem.type,
+        created_at: new Date().toLocaleString('zh-CN'),
+        updated_at: new Date().toLocaleString('zh-CN'),
+      });
+      renderMemories(memoriesCache);
+      updateMemoryBtnUI();
+      hideAddMemoryForm();
+      showToast('记忆已添加');
+    } else {
+      showToast('添加失败，请重试');
+    }
+  } catch (err) {
+    console.error('[Memory] 添加失败:', err);
+    showToast('网络错误：' + err.message);
+  }
+}
+
+// 后台静默刷新（对话结束后调用，让记忆按钮计数实时更新）
+async function refreshMemoryCount() {
+  try {
+    const [memRes, profileRes] = await Promise.all([
+      fetch('/api/memory'),
+      fetch('/api/profile'),
+    ]);
+    if (memRes.ok) {
+      const d = await memRes.json();
+      memoriesCache = d.memories || [];
+    }
+    if (profileRes.ok) {
+      const d = await profileRes.json();
+      profileCache = d.profile || {};
+    }
+    updateMemoryBtnUI();
+  } catch (_) {}
+}
+
+// ─────────────────────────────────────────────────────────────
+// 启动
+// ─────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  checkHealth();              // 探测后端（会同步 TTS / ASR / 打断 / 唤醒词状态）
+  initLive2D();               // 加载 Live2D 形象（失败不影响对话）
+  updateTTSToggleUI();        // 初始化 TTS 开关 UI（checkHealth 后会再更新一次）
+  updateVoiceBtnUI();         // 初始化语音按钮 UI
+  updateBargeInToggleUI();    // 阶段 5：初始化打断开关 UI
+  updateWakeWordToggleUI();   // 阶段 5：初始化唤醒词开关 UI
+  refreshMemoryCount();       // 阶段 4：初始化记忆计数
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+node_modules/
+.env
+# 但放行配置模板（学员需要它当样板复制成 .env）
+!.env.example
+
+# Python 虚拟环境（体积大，本地各自创建）
+.venv-tts/
+.venv-asr/
+__pycache__/
+*.pyc
+
+# 记忆数据库（阶段 4：包含用户隐私数据，不进库）
+data/
