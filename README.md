@@ -2,7 +2,7 @@
 
 # 数字分身助手 Digital Twin
 
-一个跑在 **Apple Silicon Mac 纯本地** 的卡通数字分身助手「小艾」。  
+一个跑在 **Apple Silicon Mac 纯本地** 的卡通数字分身助手「城北」。  
 能聊天、会说话、能听懂、记得你，还支持唤醒词和语音打断。
 
 ![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-3C873A?style=flat-square&logo=node.js&logoColor=white)
@@ -35,7 +35,7 @@
 | 2 | 能听懂 | 点击麦克风，语音转文字并发送 | Web Speech API |
 | 3 | 有张脸 | Live2D 卡通形象，口型随音频动 | Live2D |
 | 4 | 记得你 | 长期记忆 + 用户画像 + 记忆管理页 | SQLite |
-| 5 | 像真人 | 喊「小艾」唤醒，说话时可打断 | 前端监听 |
+| 5 | 像真人 | 喊「城北」唤醒，说话时可打断 | 前端监听 |
 | 6 | 真人形象 | 预留云端真人形象接口和部署指南 | 云端进阶 |
 
 ## 快速开始
@@ -183,13 +183,13 @@ ollama pull nomic-embed-text
 
 ### 唤醒词和打断
 
-- 喊「小艾」可以唤醒助手
-- 小艾朗读时，你开口说话可以打断它
+- 喊「城北」可以唤醒助手
+- 城北朗读时，你开口说话可以打断它
 - 这两项都优先在浏览器前端完成，不强依赖 Python 服务
 
 ```env
 WAKE_WORD_ENABLED=true
-WAKE_WORDS=小艾,小爱
+WAKE_WORDS=城北
 BARGE_IN_ENABLED=true
 ```
 

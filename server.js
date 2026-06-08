@@ -104,7 +104,7 @@ const config = {
   // 唤醒词配置（阶段 5）
   wakeWord: {
     enabled: process.env.WAKE_WORD_ENABLED !== 'false', // 默认开启
-    words: (process.env.WAKE_WORDS || '小艾,小爱').split(',').map(w => w.trim()).filter(Boolean),
+    words: (process.env.WAKE_WORDS || '城北').split(',').map(w => w.trim()).filter(Boolean),
   },
   // 形象 Provider 配置（阶段 6）
   // live2d = 本地卡通形象（默认，开箱即用）
@@ -146,9 +146,9 @@ console.log(`[Config] WAKE_WORD_ENABLED=${config.wakeWord.enabled}, WAKE_WORDS=$
 console.log(`[Config] AVATAR_PROVIDER=${config.avatar.provider}, REALHUMAN_SERVICE_URL=${config.avatar.realHumanServiceUrl || '(未配置)'}`);
 
 
-// ── 小艾的系统提示词 ────────────────────────────────────────
+// ── 城北的系统提示词 ────────────────────────────────────────
 // 这是"数字分身"的人设核心，教学场景下温暖、鼓励、面向零基础学员
-const BASE_SYSTEM_PROMPT = `你是小艾，一个温暖、亲切的数字分身学习助手。你陪伴的学员是零基础的 AI 开发初学者，他们在学习如何用 AI 工具做开发、搭 App、上架 App Store。
+const BASE_SYSTEM_PROMPT = `你是城北，一个温暖、亲切的数字分身学习助手。你陪伴的学员是零基础的 AI 开发初学者，他们在学习如何用 AI 工具做开发、搭 App、上架 App Store。
 
 你的性格特点：
 - 温暖有耐心：学员问任何问题都不会被嘲笑，你会鼓励他们

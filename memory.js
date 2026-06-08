@@ -266,9 +266,9 @@ async function extractAndSaveMemory(userMessage, assistantReply, turnCount) {
     const extractPrompt = `你是一个记忆抽取助手。从下面这段对话中，判断用户说了什么值得长期记住的信息。
 
 用户说：${userMessage}
-小艾回复：${assistantReply || '（无）'}
+城北回复：${assistantReply || '（无）'}
 
-请判断（以用户说的内容为主，小艾的回复仅作上下文参考）：
+请判断（以用户说的内容为主，城北的回复仅作上下文参考）：
 1. 有没有用户的**个人信息**？如果有，以 JSON 格式返回：{"type":"profile","key":"字段名","value":"值"}
    - key 用规范字段名，固定从这几个里选：姓名、职业、爱好、设备、目标、学习偏好。不要自创"名字""称呼"这种近义 key。
    - value 必须是具体的事实，**绝不能是"你/我/他/它"这类代词或空值**——这种情况当作没有个人信息。

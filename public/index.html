@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>小艾 · 数字分身助手</title>
+<title>城北 · 数字分身助手</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -857,7 +857,7 @@ html,body{
 
 <!-- 顶部说明条 -->
 <div class="proto-notice">
-  <strong>小艾数字分身</strong> · MVP 完整版（阶段 0-6）· 真人形象请点击 topbar 入口查看云端方案
+  <strong>城北数字分身</strong> · MVP 完整版（阶段 0-6）· 真人形象请点击 topbar 入口查看云端方案
   <span class="conn-indicator">
     <span class="conn-dot" id="connDot"></span>
     <span id="connText">连接中…</span>
@@ -874,12 +874,12 @@ html,body{
       <div class="tl-dot tl-yellow"></div>
       <div class="tl-dot tl-green"></div>
     </div>
-    <div class="titlebar-title">小艾 — 你的数字分身助手</div>
+    <div class="titlebar-title">城北 — 你的数字分身助手</div>
   </div>
 
   <!-- 顶部工具栏 -->
   <div class="app-topbar">
-    <span class="topbar-logo">小艾</span>
+    <span class="topbar-logo">城北</span>
 
     <!-- 状态药丸 -->
     <span class="status-pill pill-idle" id="statusPill">
@@ -896,7 +896,7 @@ html,body{
     </button>
 
     <!-- 记忆管理按钮（阶段 4）-->
-    <button class="memory-btn" id="memoryBtn" onclick="openMemoryPanel()" title="查看和管理小艾对你的记忆">
+    <button class="memory-btn" id="memoryBtn" onclick="openMemoryPanel()" title="查看和管理城北对你的记忆">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/><path d="M3 19a9 9 0 0 1 18 0"/></svg>
       <span id="memoryBtnLabel">记忆</span>
     </button>
@@ -908,13 +908,13 @@ html,body{
     </button>
 
     <!-- 语音打断开关（阶段 5）-->
-    <button class="tts-toggle" id="bargeInToggle" onclick="toggleBargeIn()" title="开关语音打断：小艾说话时你开口可打断">
+    <button class="tts-toggle" id="bargeInToggle" onclick="toggleBargeIn()" title="开关语音打断：城北说话时你开口可打断">
       <span id="bargeInIcon">✂️</span>
       <span id="bargeInLabel">打断</span>
     </button>
 
     <!-- 唤醒词常驻监听开关（阶段 5）-->
-    <button class="tts-toggle" id="wakeWordToggle" onclick="toggleWakeWord()" title="开关唤醒词监听：常驻监听，喊「小艾」自动激活（麦克风常开）">
+    <button class="tts-toggle" id="wakeWordToggle" onclick="toggleWakeWord()" title="开关唤醒词监听：常驻监听，喊「城北」自动激活（麦克风常开）">
       <span id="wakeWordIcon">👂</span>
       <span id="wakeWordLabel">唤醒</span>
     </button>
@@ -952,7 +952,7 @@ html,body{
           <!-- Loading 状态 -->
           <div class="avatar-loading" id="avatarLoading">
             <div class="loading-spinner"></div>
-            <div class="loading-text">正在唤醒小艾…</div>
+            <div class="loading-text">正在唤醒城北…</div>
           </div>
 
           <!-- 加载失败兜底：没有模型也能正常对话 -->
@@ -970,7 +970,7 @@ html,body{
             <div class="fallback-text">形象加载中<br>对话功能正常</div>
           </div>
 
-          <div class="avatar-name-tag">小艾</div>
+          <div class="avatar-name-tag">城北</div>
           <div class="click-hint">点击触发动作</div>
         </div>
         <div class="pulse-ring-wrap" id="pulseRing"></div>
@@ -1005,7 +1005,7 @@ html,body{
     <div class="chat-col">
       <div class="messages" id="messages">
         <div class="bubble bubble-ai">
-          <div>你好！我是小艾，你的数字分身学习助手。有什么我可以帮你的吗？</div>
+          <div>你好！我是城北，你的数字分身学习助手。有什么我可以帮你的吗？</div>
           <div class="bubble-time">刚刚</div>
         </div>
       </div>
@@ -1013,7 +1013,7 @@ html,body{
       <!-- 唤醒词监听提示条（阶段 5，唤醒监听开启时展示）-->
       <div class="wake-listen-bar" id="wakeListenBar">
         <span class="wake-dot"></span>
-        <span id="wakeListenText">正在监听唤醒词「小艾」…</span>
+        <span id="wakeListenText">正在监听唤醒词「城北」…</span>
       </div>
 
       <!-- 输入区 -->
@@ -1044,7 +1044,7 @@ html,body{
     <!-- 面板顶栏 -->
     <div class="mp-header">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/><path d="M3 19a9 9 0 0 1 18 0"/></svg>
-      <div class="mp-title">记忆管理 · 小艾认识你</div>
+      <div class="mp-title">记忆管理 · 城北认识你</div>
       <button class="mp-close" onclick="closeMemoryPanel()" title="关闭">×</button>
     </div>
 
@@ -1059,7 +1059,7 @@ html,body{
           <button class="mp-profile-edit-btn" id="profileEditBtn" onclick="toggleProfileEditor()">编辑画像</button>
         </div>
         <div class="mp-profile-fields" id="profileFields">
-          <span class="mp-profile-empty">暂无画像信息 — 和小艾聊一聊自己，它会记住的</span>
+          <span class="mp-profile-empty">暂无画像信息 — 和城北聊一聊自己，它会记住的</span>
         </div>
         <!-- 画像编辑区（默认折叠） -->
         <div class="mp-profile-editor" id="profileEditor">
@@ -1090,7 +1090,7 @@ html,body{
       </div>
 
       <div class="mp-memories-list" id="memoriesList">
-        <div class="mp-empty">暂无记忆 — 开始对话，小艾会自动记录重要的事</div>
+        <div class="mp-empty">暂无记忆 — 开始对话，城北会自动记录重要的事</div>
       </div>
     </div>
 
@@ -1116,7 +1116,7 @@ html,body{
       <!-- 诚实说明 -->
       <div class="rh-honest-block">
         <strong>本地 Mac 跑不动真人写实形象</strong>，这不是软件问题，而是硬件架构决定的。
-        小艾当前使用的是 Live2D 卡通形象，在 Mac 上实时流畅运行，已经是完整产品体验。
+        城北当前使用的是 Live2D 卡通形象，在 Mac 上实时流畅运行，已经是完整产品体验。
         真人写实需要上云，下面说清楚为什么、以及怎么做。
       </div>
 
@@ -1238,7 +1238,7 @@ let currentTTSSource = null;
 // ── 唤醒词状态（阶段 5）─────────────────────────────────────
 let wakeWordEnabled = false;     // 用户是否开启了常驻唤醒监听（默认关闭，需用户手动开）
 let wakeWordServerEnabled = true; // 后端是否配置了唤醒词
-let wakeWords = ['小艾', '小爱']; // 触发唤醒的关键词（从后端读取）
+let wakeWords = ['城北']; // 触发唤醒的关键词（从后端读取）
 // 唤醒词用的 SpeechRecognition（continuous 模式）
 let wakeWordRecognition = null;
 let wakeWordActive = false;      // 唤醒词监听是否正在运行
@@ -1306,7 +1306,7 @@ async function checkHealth() {
       updateWakeWordToggleUI();
       // 更新唤醒词监听提示文字
       const bar = document.getElementById('wakeListenText');
-      if (bar) bar.textContent = `正在监听唤醒词「${wakeWords[0] || '小艾'}」…`;
+      if (bar) bar.textContent = `正在监听唤醒词「${wakeWords[0] || '城北'}」…`;
     }
 
     // 读取阶段 6：形象 provider
@@ -1318,7 +1318,7 @@ async function checkHealth() {
     const ttsInfo = data.tts && data.tts.enabled ? ` · 🔊 ${data.tts.provider}/${data.tts.voice}` : '';
     const asrInfo = data.asr && data.asr.enabled ? ` · 🎤 ${data.asr.provider}` : '';
     const bargeInfo = data.bargeIn && data.bargeIn.enabled ? ' · ✂️打断' : '';
-    const wakeInfo = data.wakeWord && data.wakeWord.enabled ? ` · 👂${data.wakeWord.words[0] || '小艾'}` : '';
+    const wakeInfo = data.wakeWord && data.wakeWord.enabled ? ` · 👂${data.wakeWord.words[0] || '城北'}` : '';
     const avatarInfo = avatarProvider === 'realhuman' ? ' · 真人形象' : ' · Live2D';
     txt.textContent = `已连接 · ${data.provider} · ${data.model}${ttsInfo}${asrInfo}${bargeInfo}${wakeInfo}${avatarInfo}`;
     console.log('[Health] 后端在线:', data);
@@ -1913,7 +1913,7 @@ function updateBargeInToggleUI() {
   }
   btn.disabled = !bargeInServerEnabled;
   btn.title = bargeInServerEnabled
-    ? (bargeInEnabled ? '点击关闭打断：小艾说话时你开口不会打断它' : '点击开启打断：小艾说话时你开口可打断')
+    ? (bargeInEnabled ? '点击关闭打断：城北说话时你开口不会打断它' : '点击开启打断：城北说话时你开口可打断')
     : '服务端打断功能未开启（BARGE_IN_ENABLED=false）';
 }
 
@@ -2084,7 +2084,7 @@ function updateWakeWordToggleUI() {
   btn.title = wakeWordServerEnabled
     ? (wakeWordEnabled
         ? `点击关闭唤醒词监听（当前监听：${wakeWords.join('/')}）`
-        : `点击开启唤醒词监听，喊「${wakeWords[0] || '小艾'}」自动激活`)
+        : `点击开启唤醒词监听，喊「${wakeWords[0] || '城北'}」自动激活`)
     : '服务端唤醒词功能未开启（WAKE_WORD_ENABLED=false）';
 }
 
@@ -2096,7 +2096,7 @@ function updateWakeWordToggleUI() {
  * 缺点：需要联网（Chrome/Edge 的 Web Speech 走 Google 服务），国内需要 VPN。
  *
  * 如果联网不方便，openWakeWord（Python + ONNX）可以做本地唤醒，
- * 但"小艾"中文唤醒词需要自训练模型（见 README 进阶部分）。
+ * 但"城北"中文唤醒词需要自训练模型（见 README 进阶部分）。
  */
 function startWakeWordListen() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2113,7 +2113,7 @@ function startWakeWordListen() {
   wakeWordRecognition.lang = 'zh-CN';
   wakeWordRecognition.continuous = true;      // 持续监听，不自动停
   wakeWordRecognition.interimResults = true;  // 中间结果也检查（响应更快）
-  wakeWordRecognition.maxAlternatives = 3;    // 多候选词，提高"小艾"识别率
+  wakeWordRecognition.maxAlternatives = 3;    // 多候选词，提高"城北"识别率
 
   wakeWordActive = true;
 
@@ -2279,7 +2279,7 @@ function onVoiceClick() {
     return;
   }
   if (isProcessing) {
-    showToast('小艾正在回复中，请稍候…');
+    showToast('城北正在回复中，请稍候…');
     return;
   }
 
@@ -2640,7 +2640,7 @@ function renderProfile(profile) {
   const fields = document.getElementById('profileFields');
   const keys = Object.keys(profile);
   if (keys.length === 0) {
-    fields.innerHTML = '<span class="mp-profile-empty">暂无画像信息 — 和小艾聊一聊自己，它会记住的</span>';
+    fields.innerHTML = '<span class="mp-profile-empty">暂无画像信息 — 和城北聊一聊自己，它会记住的</span>';
     return;
   }
   fields.innerHTML = keys.map(k => `
@@ -2655,7 +2655,7 @@ function renderProfile(profile) {
 function renderMemories(memories) {
   const list = document.getElementById('memoriesList');
   if (memories.length === 0) {
-    list.innerHTML = '<div class="mp-empty">暂无记忆 — 开始对话，小艾会自动记录重要的事</div>';
+    list.innerHTML = '<div class="mp-empty">暂无记忆 — 开始对话，城北会自动记录重要的事</div>';
     return;
   }
   list.innerHTML = memories.map(m => {
