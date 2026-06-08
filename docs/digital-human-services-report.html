@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>可接入数字人服务全网调研报告</title>
+  <style>
+    :root {
+      --bg: #f3efe7;
+      --paper: #fffaf2;
+      --ink: #241f1a;
+      --muted: #756b5e;
+      --line: #dfd4c2;
+      --brand: #c9784a;
+      --brand-dark: #8c4f2f;
+      --green: #3b8f63;
+      --blue: #3d74a6;
+      --purple: #7554a8;
+      --red: #b55347;
+      --shadow: 0 18px 50px rgba(67, 48, 26, .12);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(201, 120, 74, .16), transparent 32%),
+        radial-gradient(circle at 90% 8%, rgba(117, 84, 168, .14), transparent 36%),
+        var(--bg);
+      line-height: 1.65;
+    }
+
+    a { color: var(--brand-dark); text-decoration: none; border-bottom: 1px solid rgba(140, 79, 47, .28); }
+    a:hover { border-bottom-color: var(--brand-dark); }
+
+    .page { max-width: 1180px; margin: 0 auto; padding: 40px 24px 80px; }
+    .hero {
+      padding: 48px;
+      border-radius: 32px;
+      background: linear-gradient(135deg, rgba(255,250,242,.96), rgba(248,240,226,.92));
+      border: 1px solid rgba(223, 212, 194, .9);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 320px;
+      height: 320px;
+      right: -110px;
+      top: -120px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(201,120,74,.28), transparent 68%);
+    }
+    .eyebrow { color: var(--brand-dark); font-weight: 800; letter-spacing: .08em; font-size: 13px; text-transform: uppercase; }
+    h1 { margin: 10px 0 14px; font-size: clamp(34px, 5vw, 58px); line-height: 1.08; letter-spacing: -.04em; }
+    .subtitle { max-width: 820px; margin: 0; color: var(--muted); font-size: 19px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #f1e4d3;
+      border: 1px solid #dfcfba;
+      font-size: 13px;
+      color: #5d5145;
+      font-weight: 650;
+    }
+
+    .toc {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 24px 0;
+    }
+    .toc a {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: rgba(255,250,242,.74);
+      color: var(--ink);
+      box-shadow: 0 8px 22px rgba(67, 48, 26, .06);
+    }
+
+    section {
+      margin-top: 28px;
+      padding: 30px;
+      border-radius: var(--radius);
+      background: rgba(255,250,242,.86);
+      border: 1px solid var(--line);
+      box-shadow: 0 12px 34px rgba(67, 48, 26, .08);
+    }
+    h2 { margin: 0 0 16px; font-size: 30px; line-height: 1.2; letter-spacing: -.02em; }
+    h3 { margin: 24px 0 10px; font-size: 21px; }
+    p { margin: 10px 0; }
+    .lead { font-size: 18px; color: #4b4036; }
+    .note {
+      padding: 16px 18px;
+      border-radius: 16px;
+      background: #f4eadc;
+      border-left: 5px solid var(--brand);
+      color: #4e4338;
+    }
+
+    .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
+    .card {
+      padding: 20px;
+      border-radius: 18px;
+      background: #fffdf8;
+      border: 1px solid var(--line);
+    }
+    .card strong { display: block; font-size: 18px; margin-bottom: 8px; }
+    .score { font-size: 32px; font-weight: 900; letter-spacing: -.03em; color: var(--brand-dark); }
+    .tag { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 750; margin-right: 6px; margin-bottom: 6px; }
+    .tag.good { background: #dcefe4; color: #216b45; }
+    .tag.mid { background: #e4edf6; color: #2a5e8d; }
+    .tag.warn { background: #fae6d7; color: #8c4f2f; }
+    .tag.risk { background: #f2dad5; color: #944034; }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; background: #fffdf8; }
+    table { width: 100%; border-collapse: collapse; min-width: 1080px; font-size: 14px; }
+    th, td { padding: 13px 14px; border-bottom: 1px solid #eadfce; vertical-align: top; }
+    th { position: sticky; top: 0; background: #efe2d0; text-align: left; color: #3d342b; font-size: 13px; }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child, th:first-child { font-weight: 800; }
+    .rank { font-size: 18px; color: var(--brand-dark); }
+
+    .vendor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .vendor {
+      border: 1px solid var(--line);
+      background: #fffdf8;
+      border-radius: 18px;
+      padding: 20px;
+    }
+    .vendor h3 { margin-top: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .vendor .badge { font-size: 13px; padding: 4px 9px; border-radius: 999px; background: #f1e4d3; color: #6b5542; white-space: nowrap; }
+    .vendor ul { padding-left: 20px; margin: 10px 0; }
+
+    .decision {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+    .big-rec {
+      padding: 24px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #fff7eb, #f2deca);
+      border: 1px solid #dfc3a5;
+    }
+    .big-rec h3 { margin-top: 0; font-size: 26px; }
+    .steps { counter-reset: step; padding-left: 0; list-style: none; }
+    .steps li { counter-increment: step; margin: 12px 0; padding-left: 42px; position: relative; }
+    .steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--brand);
+      color: white;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+    }
+
+    .source-list { columns: 2; column-gap: 40px; }
+    .source-list li { break-inside: avoid; margin-bottom: 8px; }
+    footer { margin-top: 32px; color: var(--muted); text-align: center; font-size: 13px; }
+
+    @media (max-width: 900px) {
+      .hero { padding: 30px; }
+      .toc, .cards, .vendor-grid, .decision { grid-template-columns: 1fr; }
+      .source-list { columns: 1; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="eyebrow">Digital Human Service Research · 2026-06-08</div>
+      <h1>可接入数字人服务全网调研报告</h1>
+      <p class="subtitle">目标：为 <strong>digital-twin</strong> 项目寻找可以替换当前 Live2D 形象的数字人服务。重点看公开文档、API/SDK/Web 嵌入、实时对话、试用/价格、接入难度与教学适配度。</p>
+      <div class="meta">
+        <span class="pill">调研范围：海外 SaaS / 国内云厂商 / 开源自部署</span>
+        <span class="pill">核心标准：能否接进网页</span>
+        <span class="pill">推荐路线：先 Fay 或 Tavus</span>
+      </div>
+    </header>
+
+    <nav class="toc" aria-label="目录">
+      <a href="#conclusion">一页结论</a>
+      <a href="#matrix">总览表</a>
+      <a href="#vendors">重点方案</a>
+      <a href="#roadmap">落地路线</a>
+    </nav>
+
+    <section id="conclusion">
+      <h2>一页结论</h2>
+      <p class="lead">如果只是看“数字人效果强不强”，小冰、讯飞、火山、百度、腾讯、华为都很强；但如果看“能不能让我们在一个 Node + HTML 项目里尽快接上”，答案会完全不同。</p>
+      <div class="note">
+        <strong>最终建议：</strong>教学项目优先接 <strong>Fay Agent</strong>，产品展示优先接 <strong>Tavus CVI</strong>，国产云厂商优先评估 <strong>腾讯云智能数智人</strong> 与 <strong>华为云 MetaStudio</strong>。小冰 AI Being、讯飞、火山这类页面更像企业产品/商务咨询入口，不适合作为第一版直接接入对象。
+      </div>
+      <div class="cards">
+        <div class="card">
+          <strong>最适合课程教学</strong>
+          <div class="score">Fay</div>
+          <p>开源、可本地/私有化部署，有文本/语音/数字人驱动接口，适合讲“数字人系统怎么搭起来”。</p>
+        </div>
+        <div class="card">
+          <strong>最适合网页成品展示</strong>
+          <div class="score">Tavus</div>
+          <p>CVI 明确支持 WebRTC、Embed、React 组件、OpenAPI，更像现成的网页真人视频数字人。</p>
+        </div>
+        <div class="card">
+          <strong>最适合国产云路线</strong>
+          <div class="score">腾讯/华为</div>
+          <p>公开文档相对完整，但计费、开通、鉴权和工程接入比海外 SaaS/开源方案更重。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="matrix">
+      <h2>候选服务总览表</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>排名</th>
+              <th>服务</th>
+              <th>类型</th>
+              <th>公开文档/API</th>
+              <th>网页接入</th>
+              <th>实时对话</th>
+              <th>试用/价格线索</th>
+              <th>适合度</th>
+              <th>一句话判断</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="rank">1</td>
+              <td>Fay Agent</td>
+              <td>开源/自部署</td>
+              <td>GitHub + API 文档线索</td>
+              <td>Web 管理页、API、数字人驱动接口</td>
+              <td>支持语音/文字/播报/打断/唤醒</td>
+              <td>免费开源，GPL-3.0</td>
+              <td>4.7/5</td>
+              <td>最适合课程项目：能讲清楚，也能改。</td>
+            </tr>
+            <tr>
+              <td class="rank">2</td>
+              <td>Tavus CVI</td>
+              <td>海外 SaaS</td>
+              <td>OpenAPI、CVI 文档、React 组件</td>
+              <td>Embed CVI、React UI、WebRTC</td>
+              <td>支持实时多模态视频对话</td>
+              <td>需看 Developer Portal / 价格页</td>
+              <td>4.6/5</td>
+              <td>最像“直接嵌入网页的真人视频数字人”。</td>
+            </tr>
+            <tr>
+              <td class="rank">3</td>
+              <td>Simli</td>
+              <td>海外 SaaS/API</td>
+              <td>speech-to-video API、SDK、JS 入口</td>
+              <td>LiveKit 推荐、Pipecat、JavaScript SDK</td>
+              <td>支持实时 AI avatar 与口型同步</td>
+              <td>公开页未看到明确价格</td>
+              <td>4.1/5</td>
+              <td>适合实时头像 API 路线，需继续验证价格和角色定制。</td>
+            </tr>
+            <tr>
+              <td class="rank">4</td>
+              <td>腾讯云智能数智人</td>
+              <td>国内云厂商</td>
+              <td>产品文档、API、aPaaS、SDK 线索</td>
+              <td>页面嵌入授权、云渲染/端渲染</td>
+              <td>支持交互数智人</td>
+              <td>有体验包/小时包等价格线索</td>
+              <td>4.0/5</td>
+              <td>国产商业方案里最值得先验证，但成本和概念较多。</td>
+            </tr>
+            <tr>
+              <td class="rank">5</td>
+              <td>华为云 MetaStudio</td>
+              <td>国内云厂商</td>
+              <td>API 文档完整</td>
+              <td>需进一步确认前端嵌入方式</td>
+              <td>有智能交互数字人应用/对话 API</td>
+              <td>价格多走控制台/商务</td>
+              <td>3.9/5</td>
+              <td>工程化强，适合正式项目，不一定适合课堂快跑。</td>
+            </tr>
+            <tr>
+              <td class="rank">6</td>
+              <td>D-ID</td>
+              <td>海外 SaaS/API</td>
+              <td>有 Docs/API 站，页面抓取不稳定</td>
+              <td>Streams/Agents 方向需进一步核实</td>
+              <td>有数字人 API 能力</td>
+              <td>通常有试用/套餐，需看官网</td>
+              <td>3.7/5</td>
+              <td>老牌数字人 API，可作为备选验证。</td>
+            </tr>
+            <tr>
+              <td class="rank">7</td>
+              <td>HeyGen Streaming Avatar</td>
+              <td>海外 SaaS</td>
+              <td>开发者站迁移中，公开路径不稳定</td>
+              <td>有 Streaming Avatar 产品线迹象</td>
+              <td>支持实时 Avatar 的可能性高</td>
+              <td>需控制台/价格页确认</td>
+              <td>3.5/5</td>
+              <td>产品成熟，但文档入口需要先打通。</td>
+            </tr>
+            <tr>
+              <td class="rank">8</td>
+              <td>声网 Conversational AI Engine</td>
+              <td>实时音视频/语音 AI</td>
+              <td>Web SDK、REST API、Quickstart</td>
+              <td>Web 友好</td>
+              <td>实时语音对话强</td>
+              <td>有定价入口</td>
+              <td>3.4/5</td>
+              <td>不是完整数字人，更适合作为语音对话底座。</td>
+            </tr>
+            <tr>
+              <td class="rank">9</td>
+              <td>火山引擎数字人</td>
+              <td>国内云厂商</td>
+              <td>产品页可见，公开开发文档不够直接</td>
+              <td>需商务/控制台确认</td>
+              <td>产品方向支持互动/直播</td>
+              <td>价格不透明</td>
+              <td>3.2/5</td>
+              <td>能力强，但不适合作为第一版开发者接入。</td>
+            </tr>
+            <tr>
+              <td class="rank">10</td>
+              <td>百度智能云曦灵</td>
+              <td>国内云厂商</td>
+              <td>产品页明确，API 路径需继续找</td>
+              <td>需商务/控制台确认</td>
+              <td>定位包含互动数字人</td>
+              <td>价格不透明</td>
+              <td>3.1/5</td>
+              <td>适合企业项目咨询，快速接入不如腾讯/华为。</td>
+            </tr>
+            <tr>
+              <td class="rank">11</td>
+              <td>科大讯飞 AI 虚拟数字人</td>
+              <td>国内开放平台/云服务</td>
+              <td>页面未看到清晰数字人 API/SDK</td>
+              <td>需控制台/售前确认</td>
+              <td>语音 + 星火 + 虚拟人组合潜力强</td>
+              <td>开放平台可能有试用，数字人需确认</td>
+              <td>3.0/5</td>
+              <td>技术拼图强，但数字人专项接入不够透明。</td>
+            </tr>
+            <tr>
+              <td class="rank">12</td>
+              <td>小冰 AI Being</td>
+              <td>企业数字员工</td>
+              <td>未看到公开 API/SDK/Web embed</td>
+              <td>联系商务为主</td>
+              <td>产品能力强，但接入未知</td>
+              <td>无公开价格</td>
+              <td>2.4/5</td>
+              <td>不建议作为第一版实现对象。</td>
+            </tr>
+            <tr>
+              <td class="rank">13</td>
+              <td>硅基智能 / 魔珐 / 商汤 / 京东言犀等</td>
+              <td>企业定制/内容生产/直播</td>
+              <td>公开开发者文档有限</td>
+              <td>多走商务</td>
+              <td>行业能力强</td>
+              <td>通常无公开价格</td>
+              <td>2.0-3.0/5</td>
+              <td>适合供应商调研，不适合马上接进课程 Demo。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="vendors">
+      <h2>重点方案详解</h2>
+      <div class="vendor-grid">
+        <article class="vendor">
+          <h3>Fay Agent <span class="badge">首推：教学路线</span></h3>
+          <p><span class="tag good">开源</span><span class="tag good">可本地部署</span><span class="tag mid">API/数字人驱动</span></p>
+          <p>Fay 是“数字人 & LLM 的全栈 Agent 框架”，支持文字交互、语音交互、自动播报、打断、唤醒、数字人驱动接口，能作为 digital-twin 的下一阶段教学主线。</p>
+          <ul>
+            <li>优点：免费开源、可改、适合课程讲解。</li>
+            <li>缺点：不是一个“嵌入即用”的 SaaS，需要部署和适配。</li>
+            <li>适合：本地/私有化数字人 Agent、课程项目升级。</li>
+          </ul>
+          <p><a href="https://www.fay-agent.com/">官网</a> · <a href="https://github.com/xszyou/Fay">GitHub</a></p>
+        </article>
+
+        <article class="vendor">
+          <h3>Tavus CVI <span class="badge">首推：产品展示</span></h3>
+          <p><span class="tag good">WebRTC</span><span class="tag good">Embed</span><span class="tag good">React UI</span><span class="tag mid">OpenAPI</span></p>
+          <p>CVI 是实时视频式 AI 数字人接口，包含 Persona、Replica、Conversation。官方文档明确提到 WebRTC、Embed CVI、React 组件库与 OpenAPI。</p>
+          <ul>
+            <li>优点：最像能直接嵌进网页的真人感数字人。</li>
+            <li>缺点：价格、账号权限、国内访问稳定性要验证。</li>
+            <li>适合：把 Live2D 换成真人视频式 AI 助手。</li>
+          </ul>
+          <p><a href="https://docs.tavus.io/">文档</a> · <a href="https://docs.tavus.io/sections/conversational-video-interface/overview">CVI Overview</a></p>
+        </article>
+
+        <article class="vendor">
+          <h3>Simli <span class="badge">实时 Avatar API</span></h3>
+          <p><span class="tag good">API</span><span class="tag mid">JavaScript</span><span class="tag mid">LiveKit</span><span class="tag mid">Pipecat</span></p>
+          <p>Simli 是 speech-to-video API，用于给实时 AI Agent 增加人脸和口型同步。文档显示它支持 SDK、JavaScript、LiveKit 和 Pipecat 路线。</p>
+          <ul>
+            <li>优点：实时 avatar 方向明确，开发者友好。</li>
+            <li>缺点：价格、形象定制、中文体验需要进一步验证。</li>
+            <li>适合：想做实时头像 API，而不是完整云厂商套件。</li>
+          </ul>
+          <p><a href="https://docs.simli.com/">文档</a></p>
+        </article>
+
+        <article class="vendor">
+          <h3>腾讯云智能数智人 <span class="badge">国产商业候选</span></h3>
+          <p><span class="tag good">公开文档</span><span class="tag mid">API/aPaaS</span><span class="tag mid">页面嵌入</span><span class="tag warn">成本较高</span></p>
+          <p>腾讯云在国产方案里公开资料相对完整，包含播报数智人、交互数智人、aPaaS、云渲染/端渲染、页面嵌入授权等线索。</p>
+          <ul>
+            <li>优点：商业化完整，国产云合规。</li>
+            <li>缺点：套餐、并发、渲染模式、计费项复杂。</li>
+            <li>适合：正式验证国产云数字人接入。</li>
+          </ul>
+          <p><a href="https://cloud.tencent.com/product/ivh">产品页</a> · <a href="https://cloud.tencent.com/document/product/1240">文档</a></p>
+        </article>
+
+        <article class="vendor">
+          <h3>华为云 MetaStudio <span class="badge">API 完整</span></h3>
+          <p><span class="tag good">REST API</span><span class="tag mid">智能交互</span><span class="tag warn">工程较重</span></p>
+          <p>MetaStudio API 文档覆盖数字人视频、直播、智能交互、资产管理、语音合成、鉴权码等能力，适合正式工程方案。</p>
+          <ul>
+            <li>优点：API 体系清楚，云厂商能力完整。</li>
+            <li>缺点：前端嵌入体验、账号权限、价格需进一步确认。</li>
+            <li>适合：后端工程化集成，不一定适合课堂快跑。</li>
+          </ul>
+          <p><a href="https://support.huaweicloud.com/api-metastudio/metastudio_02_0000.html">API 文档</a></p>
+        </article>
+
+        <article class="vendor">
+          <h3>小冰 / 讯飞 / 火山 / 百度 <span class="badge">商务调研池</span></h3>
+          <p><span class="tag warn">企业产品页</span><span class="tag risk">公开接入不足</span></p>
+          <p>这些方案产品能力强，但公开页面更偏“产品介绍 + 联系销售 + 控制台开通”，目前没有看到足够清晰的 Web SDK / iframe / API 接入路径。</p>
+          <ul>
+            <li>优点：品牌强、行业方案强、中文生态更好。</li>
+            <li>缺点：不适合马上写进教学 Demo。</li>
+            <li>适合：后续做供应商咨询表，问清最低成本和 Web 接入方式。</li>
+          </ul>
+          <p><a href="https://business.xiaoice.com/Home/AIBeing">小冰</a> · <a href="https://www.xfyun.cn/services/VirtualHumans">讯飞</a> · <a href="https://www.volcengine.com/product/avatar">火山</a></p>
+        </article>
+      </div>
+    </section>
+
+    <section id="roadmap">
+      <h2>建议落地路线</h2>
+      <div class="decision">
+        <div class="big-rec">
+          <h3>推荐先做：Fay Agent 分支</h3>
+          <p>因为 digital-twin 是课程项目，最重要的不是“买到最炫的数字人”，而是让零基础学员看懂：前端形象、语音、记忆、LLM、大脑、数字人驱动接口分别负责什么。Fay Agent 最适合承担这条教学线。</p>
+          <ol class="steps">
+            <li>保留当前 Live2D 作为默认形象：<code>AVATAR_PROVIDER=live2d</code>。</li>
+            <li>新增 <code>AVATAR_PROVIDER=fay</code>，把 Fay 作为外部数字人 Agent 服务。</li>
+            <li>前端新增 Fay 状态卡：未配置时显示部署指引，已配置时连接 Fay API/WebSocket。</li>
+            <li>后端新增统一代理：避免浏览器直接暴露 Fay 服务地址或密钥。</li>
+            <li>课程里讲“三层架构”：形象层、实时交互层、大脑层。</li>
+          </ol>
+        </div>
+        <div class="big-rec">
+          <h3>如果追求展示效果：Tavus</h3>
+          <p>如果你下一步想做一个“看起来像产品发布会”的展示页，Tavus CVI 更适合：它偏真人视频数字人，能通过 WebRTC / Embed / React 组件接入。</p>
+          <p><strong>验证清单：</strong></p>
+          <ul>
+            <li>是否能拿到免费试用或低成本 starter。</li>
+            <li>是否能用普通 HTML/iframe 嵌入，而不是必须 React。</li>
+            <li>是否能接入自定义 LLM 或 webhook。</li>
+            <li>国内网络下延迟和可用性是否可接受。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>供应商咨询时要问的 8 个问题</h2>
+      <div class="note">这部分专门给小冰、讯飞、火山、百度、腾讯、华为等商务型方案使用。只要对方答不清，就不适合作为第一版教学 Demo。</div>
+      <ol>
+        <li>有没有公开 API / SDK / Web embed 文档？能不能发链接？</li>
+        <li>能不能嵌入普通 HTML 页面？是否必须用 React/Vue/小程序/控制台？</li>
+        <li>是实时对话，还是只能生成一段数字人视频？</li>
+        <li>是否支持把我们自己的 Node 后端 / LLM 接进去？</li>
+        <li>前端拿到的是 iframe、WebRTC、视频流、Canvas、SDK，还是别的？</li>
+        <li>最低试用成本是多少？有没有免费额度？</li>
+        <li>是否支持中文实时打断、唤醒词、低延迟语音对话？</li>
+        <li>是否允许课程演示、录屏、公开展示？</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>参考来源</h2>
+      <ul class="source-list">
+        <li><a href="https://www.fay-agent.com/">Fay Agent 官网</a></li>
+        <li><a href="https://github.com/xszyou/Fay">Fay Agent GitHub</a></li>
+        <li><a href="https://docs.tavus.io/">Tavus Docs</a></li>
+        <li><a href="https://docs.tavus.io/sections/conversational-video-interface/overview">Tavus CVI Overview</a></li>
+        <li><a href="https://docs.simli.com/">Simli Docs</a></li>
+        <li><a href="https://docs.d-id.com/reference/overview">D-ID Docs</a></li>
+        <li><a href="https://developers.heygen.com/">HeyGen Developers</a></li>
+        <li><a href="https://cloud.tencent.com/product/ivh">腾讯云智能数智人产品页</a></li>
+        <li><a href="https://cloud.tencent.com/document/product/1240">腾讯云智能数智人文档</a></li>
+        <li><a href="https://support.huaweicloud.com/api-metastudio/metastudio_02_0000.html">华为云 MetaStudio API</a></li>
+        <li><a href="https://docs.agora.io/en/conversational-ai/overview/product-overview">声网 Conversational AI Engine</a></li>
+        <li><a href="https://www.zego.im/">即构 ZEGOCLOUD</a></li>
+        <li><a href="https://www.volcengine.com/product/avatar">火山引擎数字人</a></li>
+        <li><a href="https://cloud.baidu.com/product/xiling">百度智能云曦灵</a></li>
+        <li><a href="https://www.xfyun.cn/services/VirtualHumans">科大讯飞 AI 虚拟数字人</a></li>
+        <li><a href="https://business.xiaoice.com/Home/AIBeing">小冰 AI Being</a></li>
+        <li><a href="https://yanxi.jd.com/">京东言犀</a></li>
+        <li><a href="https://www.faceunity.com/">相芯科技 FaceUnity</a></li>
+        <li><a href="https://www.guiji.ai/">硅基智能</a></li>
+        <li><a href="https://www.mofaai.com/">魔珐科技</a></li>
+        <li><a href="https://www.sensetime.com/">商汤科技</a></li>
+      </ul>
+    </section>
+
+    <footer>
+      本报告用于 digital-twin 项目选型。结论基于公开页面与文档可见信息；企业商务型产品在正式采购前仍需二次确认价格、权限、试用和嵌入方式。
+    </footer>
+  </main>
+</body>
+</html>
