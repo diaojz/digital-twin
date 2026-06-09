@@ -36,6 +36,7 @@ import {
   getProfile,
   setProfile,
 } from './memory.js';
+import { tts as dashscopeTts, genFigure, emoDetect, emoGen } from './realhuman/api.js';
 
 // ── 读取 .env 文件（如果存在） ──────────────────────────────
 // Node 24 原生支持 --env-file 参数，但为了兼容旧版本，这里手动解析
@@ -77,6 +78,11 @@ const config = {
     base: process.env.GATEWAY_BASE || 'https://gw.diaoye.org/v1',
     key: process.env.GATEWAY_KEY || '',
     model: process.env.GATEWAY_MODEL || 'claude-sonnet-4-5',
+  },
+  dashscope: {
+    base: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    key: process.env.DASHSCOPE_API_KEY || '',
+    model: 'qwen3-max',
   },
   port: parseInt(process.env.PORT || '3000', 10),
   // TTS 配置（阶段 1）
@@ -124,6 +130,13 @@ function getLlmEndpoint() {
       apiKey: config.gateway.key,
     };
   }
+  if (config.provider === 'dashscope') {
+    return {
+      url: config.dashscope.base.replace(/\/$/, '') + '/chat/completions',
+      model: config.dashscope.model,
+      apiKey: config.dashscope.key,
+    };
+  }
   // 默认 ollama，使用 OpenAI 兼容端点
   return {
     url: config.ollama.base.replace(/\/$/, '') + '/v1/chat/completions',
@@ -135,6 +148,8 @@ function getLlmEndpoint() {
 console.log(`[Config] LLM_PROVIDER=${config.provider}`);
 if (config.provider === 'gateway') {
   console.log(`[Config] Gateway: ${config.gateway.base}, model=${config.gateway.model}`);
+} else if (config.provider === 'dashscope') {
+  console.log(`[Config] DashScope: ${config.dashscope.base}, model=${config.dashscope.model}`);
 } else {
   console.log(`[Config] Ollama: ${config.ollama.base}, model=${config.ollama.model}`);
 }
@@ -166,6 +181,11 @@ const BASE_SYSTEM_PROMPT = `你是城北，一个温暖、亲切的数字分身�
 // 对话轮次计数（用于触发强制记忆抽取）
 let turnCount = 0;
 
+// 真人形象缓存（阶段 6 realhuman 模式）
+// 结构：{ imageUrl: string, faceBbox: number[], extBbox: number[] }
+// null 表示尚未生成形象
+let rhFigure = null;
+
 // ── Express 应用 ─────────────────────────────────────────────
 const app = express();
 app.use(express.json());
@@ -184,7 +204,7 @@ app.use(express.static(join(__dirname, 'public')));
  *   data: {"error":"..."}   ← 出错
  */
 app.post('/api/chat', async (req, res) => {
-  const { messages } = req.body;
+  const { messages, persona } = req.body;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages 字段不能为空' });
@@ -193,7 +213,11 @@ app.post('/api/chat', async (req, res) => {
   // 阶段 4：检索相关记忆 + 用户画像，拼进 system prompt
   const userMessage = messages[messages.length - 1]?.content || '';
   const memoryContext = await buildMemoryContext(userMessage);
-  const systemPrompt = BASE_SYSTEM_PROMPT + memoryContext;
+  // 配置面板「性格」：若前端传来 persona，则作为 system prompt 前缀注入，覆盖基础人设语气
+  const personaPrefix = (persona && typeof persona === 'string' && persona.trim())
+    ? persona.trim() + '\n\n'
+    : '';
+  const systemPrompt = personaPrefix + BASE_SYSTEM_PROMPT + memoryContext;
 
   if (memoryContext) {
     console.log('[Chat] 已注入记忆上下文（', memoryContext.length, '字符）');
@@ -826,15 +850,129 @@ app.get('/api/avatar/config', (_req, res) => {
     realHumanReady: provider === 'realhuman' && !!realHumanServiceUrl,
     // 真人服务地址由后端代理，前端不需要直接连，这里只返回是否已配置
     realHumanConfigured: !!realHumanServiceUrl,
+    // 当前缓存的真人形象（若有）
+    figure: rhFigure ? { imageUrl: rhFigure.imageUrl } : null,
   });
+});
+
+// ── 真人形象：生成形象图 + 检测人脸 ─────────────────────────
+/**
+ * POST /api/avatar/realhuman/figure
+ * 请求体（可选）：{ prompt?: string }
+ * 流程：文生图 → 人脸检测 → 缓存到 rhFigure → 返回
+ * 耗时约 30-60s（异步任务轮询）
+ */
+app.post('/api/avatar/realhuman/figure', async (req, res) => {
+  const DEFAULT_PROMPT = '一位温柔治愈的年轻亚洲女性，正面肖像，清晰五官，柔和自然微笑，简洁柔光纯色背景，写实摄影风格，高质量';
+  const prompt = (req.body && req.body.prompt) ? req.body.prompt : DEFAULT_PROMPT;
+  // 配置面板「画幅」：1:1 方形（省，1024*1024）/ 3:4 竖屏（默认，好看，720*1280）
+  const ratio = (req.body && req.body.ratio === '1:1') ? '1:1' : '3:4';
+  const size = ratio === '1:1' ? '1024*1024' : '720*1280';
+
+  console.log('[RealHuman/figure] 开始生成形象，ratio:', ratio, 'prompt:', prompt.slice(0, 40) + '...');
+
+  try {
+    // Step 1: 文生图
+    console.log('[RealHuman/figure] 调用 genFigure...');
+    const imageUrl = await genFigure(prompt, size);
+    console.log('[RealHuman/figure] 图片 URL:', imageUrl);
+
+    // Step 2: 人脸检测
+    console.log('[RealHuman/figure] 调用 emoDetect...');
+    const bbox = await emoDetect(imageUrl, ratio);
+    console.log('[RealHuman/figure] emoDetect 结果:', JSON.stringify(bbox));
+
+    if (!bbox.check_pass) {
+      return res.status(400).json({
+        error: '人脸检测未通过（check_pass=false），请换一个 prompt 重试',
+        imageUrl,
+        bbox,
+      });
+    }
+
+    // Step 3: 缓存到模块变量
+    rhFigure = {
+      imageUrl,
+      faceBbox: bbox.face_bbox,
+      extBbox: bbox.ext_bbox,
+    };
+
+    res.json({
+      imageUrl,
+      faceBbox: bbox.face_bbox,
+      extBbox: bbox.ext_bbox,
+      checkPass: bbox.check_pass,
+    });
+  } catch (err) {
+    console.error('[RealHuman/figure] 失败:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── 真人形象：文字转说话视频 ─────────────────────────────────
+/**
+ * POST /api/avatar/realhuman/speak
+ * 请求体：{ text: string, voice?: string }
+ * 流程：TTS（CosyVoice）→ emoGen（对口型视频）→ 返回 videoUrl + audioUrl
+ * 耗时约 1-3min（两步异步任务轮询）
+ */
+app.post('/api/avatar/realhuman/speak', async (req, res) => {
+  if (!rhFigure) {
+    return res.status(400).json({
+      error: '请先调用 POST /api/avatar/realhuman/figure 生成形象',
+    });
+  }
+
+  const { text, voice, rate, pitch, volume } = req.body || {};
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    return res.status(400).json({ error: 'text 字段不能为空' });
+  }
+
+  const usedVoice = voice || 'longwan_v2';
+  // 配置面板「语音微调」：仅透传前端确实给了的数值，其余用 api.js 默认
+  const ttsOpts = { voice: usedVoice };
+  if (typeof rate === 'number') ttsOpts.rate = rate;
+  if (typeof pitch === 'number') ttsOpts.pitch = pitch;
+  if (typeof volume === 'number') ttsOpts.volume = volume;
+  console.log('[RealHuman/speak] 开始，text:', text.slice(0, 30) + '...', 'voice:', usedVoice);
+
+  // Step 1: TTS → 获取音频 URL（失败则整体失败，无可降级内容）
+  let audioUrl;
+  try {
+    console.log('[RealHuman/speak] 调用 dashscope TTS...');
+    audioUrl = await dashscopeTts(text.trim(), ttsOpts);
+    console.log('[RealHuman/speak] 音频 URL:', audioUrl);
+  } catch (err) {
+    console.error('[RealHuman/speak] TTS 失败:', err.message);
+    return res.status(500).json({ error: 'TTS 失败: ' + err.message });
+  }
+
+  // Step 2: emoGen → 对口型视频（失败则降级：仍返回 audioUrl，前端只播音频 + 静态图，不卡死）
+  try {
+    console.log('[RealHuman/speak] 调用 emoGen...');
+    const videoUrl = await emoGen(rhFigure.imageUrl, audioUrl, {
+      face_bbox: rhFigure.faceBbox,
+      ext_bbox: rhFigure.extBbox,
+    });
+    console.log('[RealHuman/speak] 视频 URL:', videoUrl);
+    res.json({ videoUrl, audioUrl });
+  } catch (err) {
+    console.error('[RealHuman/speak] emoGen 失败（降级播音频）:', err.message);
+    res.json({ audioUrl, videoError: err.message });
+  }
 });
 
 // ── 健康检查端点 ─────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
+  let currentModel;
+  if (config.provider === 'gateway') currentModel = config.gateway.model;
+  else if (config.provider === 'dashscope') currentModel = config.dashscope.model;
+  else currentModel = config.ollama.model;
+
   res.json({
     status: 'ok',
     provider: config.provider,
-    model: config.provider === 'gateway' ? config.gateway.model : config.ollama.model,
+    model: currentModel,
     tts: {
       enabled: config.tts.enabled,
       provider: config.tts.provider,
