@@ -542,8 +542,14 @@ async function generateFigure(){
     const data = await r.json();
     if (!r.ok || !data.imageUrl) throw new Error(data.error || '生成失败');
     applyFigure(data.imageUrl);
-    $('avatarState').textContent = '✅ 形象已就绪，可以回对话页聊天了';
-    toast('形象生成成功！');
+    if (data.detectError){
+      // 文生图成功但 EMO 人脸检测失败（最常见：EMO 服务未开通）→ 仅静态形象 + 语音
+      $('avatarState').textContent = '✅ 写实形象已就绪；对口型暂不可用（' + data.detectError + '）';
+      toast('形象已生成。对口型视频需在阿里云开通「EMO 悦动人像」服务', 4200);
+    } else {
+      $('avatarState').textContent = '✅ 形象已就绪，可以回对话页聊天了';
+      toast('形象生成成功！');
+    }
   } catch (e){
     $('avatarState').textContent = '❌ 生成失败：' + (e.message||e);
     toast('生成失败：' + (e.message||e), 3500);

@@ -872,39 +872,37 @@ app.post('/api/avatar/realhuman/figure', async (req, res) => {
   console.log('[RealHuman/figure] 开始生成形象，ratio:', ratio, 'prompt:', prompt.slice(0, 40) + '...');
 
   try {
-    // Step 1: 文生图
+    // Step 1: 文生图（失败则整体失败）
     console.log('[RealHuman/figure] 调用 genFigure...');
     const imageUrl = await genFigure(prompt, size);
     console.log('[RealHuman/figure] 图片 URL:', imageUrl);
 
-    // Step 2: 人脸检测
-    console.log('[RealHuman/figure] 调用 emoDetect...');
-    const bbox = await emoDetect(imageUrl, ratio);
-    console.log('[RealHuman/figure] emoDetect 结果:', JSON.stringify(bbox));
-
-    if (!bbox.check_pass) {
-      return res.status(400).json({
-        error: '人脸检测未通过（check_pass=false），请换一个 prompt 重试',
-        imageUrl,
-        bbox,
-      });
+    // Step 2: 人脸检测（EMO 服务）。失败不阻塞——降级为「只有静态形象、无对口型坐标」，
+    //         让 EMO 未开通时也能展示写实形象 + 语音对话（PRD §6.1 降级不阻塞）。
+    let faceBbox = [];
+    let extBbox = [];
+    let checkPass = false;
+    let detectError = null;
+    try {
+      console.log('[RealHuman/figure] 调用 emoDetect...');
+      const bbox = await emoDetect(imageUrl, ratio);
+      console.log('[RealHuman/figure] emoDetect 结果:', JSON.stringify(bbox));
+      faceBbox = bbox.face_bbox || [];
+      extBbox = bbox.ext_bbox || [];
+      checkPass = bbox.check_pass || false;
+      if (!checkPass) detectError = '人脸检测未通过（check_pass=false），换一张图可重试对口型';
+    } catch (e) {
+      // 最常见：EMO（悦动人像）服务未开通 → 403。形象图仍可用，只是暂无对口型坐标。
+      detectError = e.message;
+      console.warn('[RealHuman/figure] emoDetect 失败（降级为仅静态形象）:', e.message);
     }
 
-    // Step 3: 缓存到模块变量
-    rhFigure = {
-      imageUrl,
-      faceBbox: bbox.face_bbox,
-      extBbox: bbox.ext_bbox,
-    };
+    // Step 3: 缓存（即便无 bbox，也存 imageUrl 供舞台静态展示）
+    rhFigure = { imageUrl, faceBbox, extBbox };
 
-    res.json({
-      imageUrl,
-      faceBbox: bbox.face_bbox,
-      extBbox: bbox.ext_bbox,
-      checkPass: bbox.check_pass,
-    });
+    res.json({ imageUrl, faceBbox, extBbox, checkPass, detectError });
   } catch (err) {
-    console.error('[RealHuman/figure] 失败:', err.message);
+    console.error('[RealHuman/figure] 文生图失败:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

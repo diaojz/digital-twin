@@ -115,15 +115,18 @@ export async function chatStream(messages, systemPrompt) {
  * @returns {Promise<string>} 公网 MP3 URL（有效期 24h）
  */
 export async function tts(text, { voice = 'longwan_v2', rate = 1.0, pitch = 1.0, volume = 50 } = {}) {
-  const url = `${DASH_BASE}/api/v1/services/aigc/multimodal-generation/generation`;
+  // CosyVoice 语音合成走专用 SpeechSynthesizer 端点；
+  // 注意：format/sample_rate/rate/pitch/volume 都放在 input 里（不是 parameters），否则报 "url error"
+  const url = `${DASH_BASE}/api/v1/services/audio/tts/SpeechSynthesizer`;
 
   const resp = await fetch(url, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({
       model: 'cosyvoice-v2',
-      input: { text, voice },
-      parameters: {
+      input: {
+        text,
+        voice,
         format: 'mp3',
         sample_rate: 24000,
         rate,
