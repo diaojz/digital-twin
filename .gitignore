@@ -11,3 +11,9 @@ __pycache__/
 
 # 记忆数据库（阶段 4：包含用户隐私数据，不进库）
 data/
+
+# Serena MCP 项目缓存（工具产物，不进库）
+.serena/
+
+# 前端旧版本地备份（Live2D 城北版快照；旧版本身在 git 历史里可追溯）
+public/index.live2d.bak.html
