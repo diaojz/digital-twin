@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>写实数字人对话 · 高保真设计稿（关怀岛屿风格）</title>
+<style>
+  :root{
+    --p1:#8b6cf0;--p2:#a78bfa;--p3:#c89bf0;--pink:#e9789f;
+    --ink:#3a3550;--ink-soft:#6e6889;--ink-faint:#a39fb8;
+    --card:rgba(255,255,255,.72);--glass:rgba(255,255,255,.55);
+    --line:rgba(140,120,210,.14);--green:#37b87c;--orange:#e6975a;
+    --shadow:0 10px 30px rgba(124,92,219,.12);--shadow-sm:0 4px 14px rgba(124,92,219,.10);
+    --fs:1;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    color:var(--ink);display:flex;flex-wrap:wrap;gap:30px;justify-content:center;align-items:flex-start;
+    padding:34px 16px 70px;min-height:100vh;
+    background:radial-gradient(circle at 20% 10%,#efe9fb,#e4ddf3 60%);}
+  .lab{width:100%;text-align:center;color:#7d75a0;font-size:13px;margin-bottom:-4px;letter-spacing:.4px;}
+  .lab b{color:#5a4b9c;}
+  .col-title{width:100%;text-align:center;font-weight:800;color:#5a4b9c;font-size:15px;margin:10px 0 -16px;}
+
+  /* phone */
+  .phone{width:340px;height:724px;border-radius:42px;flex:none;
+    background:linear-gradient(160deg,#d9c9f5,#e7d6f3 40%,#f3d9e8);padding:11px;
+    box-shadow:0 30px 70px rgba(90,60,170,.28),inset 0 0 0 2px rgba(255,255,255,.4);position:relative;}
+  .screen{width:100%;height:100%;border-radius:32px;overflow:hidden;position:relative;
+    background:linear-gradient(165deg,#cdbdf2,#dcc8ee 38%,#efd5e6 78%,#f6dbe6);}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:26px;
+    background:rgba(60,40,110,.18);border-radius:0 0 16px 16px;z-index:50;}
+  .statusbar{position:absolute;top:0;left:0;right:0;height:40px;z-index:40;display:flex;align-items:center;
+    justify-content:space-between;padding:8px 22px 0;font-size:12px;font-weight:600;color:#5a4b86;}
+  .scrn-tag{position:absolute;top:11px;left:11px;z-index:60;background:rgba(139,108,240,.92);color:#fff;
+    font-size:10px;font-weight:700;padding:3px 10px;border-radius:0 0 12px 0;}
+
+  .page{position:absolute;inset:0;display:flex;flex-direction:column;padding:46px 16px 20px;overflow:hidden;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;flex:none;}
+  .topbar .title{font-size:16px;font-weight:700;color:#4a3f70;display:flex;align-items:center;gap:5px;}
+  .iconbtn{width:36px;height:36px;border-radius:50%;background:var(--glass);border:1px solid rgba(255,255,255,.6);
+    display:flex;align-items:center;justify-content:center;font-size:15px;color:#6a5aa0;cursor:pointer;
+    box-shadow:var(--shadow-sm);flex:none;}
+
+  /* ===== 数字人舞台 ===== */
+  .stage{position:relative;width:100%;height:330px;flex:none;border-radius:24px;overflow:hidden;margin-bottom:10px;
+    background:radial-gradient(circle at 70% 18%,rgba(255,240,200,.5),transparent 45%),
+      linear-gradient(170deg,#b7a4ec,#c9b0ec 40%,#e6c4e0 75%,#f0cfdf);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.5),0 8px 24px rgba(124,92,219,.16);
+    display:flex;align-items:flex-end;justify-content:center;transition:box-shadow .3s;}
+  .stage .moon{position:absolute;left:22px;top:24px;font-size:30px;filter:drop-shadow(0 2px 8px rgba(255,230,160,.6));}
+  .stage .lighthouse{position:absolute;right:20px;top:120px;font-size:26px;opacity:.65;}
+  .star{position:absolute;border-radius:50%;background:#fff;box-shadow:0 0 6px #fff;animation:tw 3s infinite;}
+  @keyframes tw{0%,100%{opacity:.3}50%{opacity:.95}}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+  /* 写实美女形象（占位：渐变人形 + emoji；正式版替换为 EMO 视频/形象图） */
+  .avatar{width:200px;height:300px;border-radius:50% 50% 46% 46%/40% 40% 60% 60%;
+    background:
+      radial-gradient(circle at 50% 30%,#f6e2d2,#e9c5b0 55%,transparent 70%),
+      linear-gradient(180deg,#cbb0ec,#b9a0e0);
+    margin-bottom:0;position:relative;animation:float 6s infinite;
+    box-shadow:0 12px 30px rgba(120,80,180,.3);display:flex;align-items:flex-start;justify-content:center;}
+  .avatar .face{font-size:96px;margin-top:30px;filter:drop-shadow(0 6px 12px rgba(120,80,180,.25));}
+  .avatar-tag{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.62);
+    padding:4px 14px;border-radius:14px;font-weight:700;color:#4a3f70;font-size:12px;}
+  /* 状态药丸 */
+  .statepill{position:absolute;top:14px;right:14px;font-size:11px;font-weight:700;color:#fff;
+    padding:3px 11px;border-radius:12px;background:var(--p2);z-index:5;}
+  .statepill.listen{background:var(--green)}.statepill.think{background:var(--orange)}
+  .statepill.gen{background:var(--p1)}.statepill.speak{background:var(--p1)}
+  /* 声波 + 大麦克风 */
+  .mic-zone{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;z-index:6;}
+  .wave{display:flex;align-items:center;gap:3px;}
+  .wave i{width:3px;border-radius:3px;background:rgba(255,255,255,.85);animation:wv 1s infinite ease-in-out;}
+  .wave i:nth-child(1){height:10px;animation-delay:0s}.wave i:nth-child(2){height:18px;animation-delay:.15s}
+  .wave i:nth-child(3){height:26px;animation-delay:.3s}.wave i:nth-child(4){height:16px;animation-delay:.45s}
+  .wave i:nth-child(5){height:9px;animation-delay:.6s}
+  @keyframes wv{0%,100%{transform:scaleY(.5)}50%{transform:scaleY(1)}}
+  .bigmic{width:62px;height:62px;border-radius:50%;background:linear-gradient(160deg,var(--p1),var(--p2));
+    display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;cursor:pointer;
+    box-shadow:0 8px 22px rgba(139,108,240,.5),0 0 0 6px rgba(255,255,255,.25);}
+  /* 状态光环 */
+  .stage.s-idle{box-shadow:inset 0 0 0 2px rgba(255,255,255,.5),0 0 0 3px rgba(167,139,250,.5),0 8px 24px rgba(124,92,219,.16)}
+  .stage.s-listen{box-shadow:inset 0 0 0 2px rgba(255,255,255,.5),0 0 0 3px var(--green),0 0 22px rgba(55,184,124,.45)}
+  .stage.s-think{box-shadow:inset 0 0 0 2px rgba(255,255,255,.5),0 0 0 3px var(--orange),0 0 22px rgba(230,151,90,.45)}
+  .stage.s-speak{box-shadow:inset 0 0 0 2px rgba(255,255,255,.5),0 0 0 3px var(--p1),0 0 26px rgba(139,108,240,.5)}
+
+  /* 生成中遮罩 */
+  .gen-mask{position:absolute;inset:0;background:rgba(58,43,90,.42);backdrop-filter:blur(3px);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;z-index:8;}
+  .gen-ring{width:54px;height:54px;border-radius:50%;border:4px solid rgba(255,255,255,.3);
+    border-top-color:#fff;animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .gen-mask .gt{font-size:13px;font-weight:700;}
+  .gen-mask .gs{font-size:11px;opacity:.85;}
+  .gen-bar{width:130px;height:5px;border-radius:3px;background:rgba(255,255,255,.25);overflow:hidden;}
+  .gen-bar i{display:block;height:100%;width:62%;background:#fff;border-radius:3px;}
+
+  /* ===== 对话气泡 ===== */
+  .chat{flex:1;display:flex;flex-direction:column;gap:8px;overflow-y:auto;padding:2px 2px 6px;scrollbar-width:none;}
+  .chat::-webkit-scrollbar{display:none;}
+  .msg{max-width:80%;padding:9px 13px;border-radius:15px;font-size:13.5px;line-height:1.5;}
+  .msg.ai{align-self:flex-start;background:rgba(255,255,255,.82);color:#4a3f70;border-bottom-left-radius:5px;box-shadow:var(--shadow-sm);}
+  .msg.me{align-self:flex-end;background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;border-bottom-right-radius:5px;}
+  .quick{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 8px;flex:none;}
+  .quick span{font-size:11.5px;padding:6px 12px;border-radius:13px;background:rgba(255,255,255,.6);color:var(--p1);
+    font-weight:600;cursor:pointer;box-shadow:var(--shadow-sm);}
+  .inbar{display:flex;gap:8px;align-items:center;flex:none;}
+  .inbar input{flex:1;border:1px solid var(--line);background:rgba(255,255,255,.75);border-radius:20px;
+    padding:11px 15px;font-size:13.5px;color:var(--ink);outline:none;}
+  .inbar .ib{width:42px;height:42px;border-radius:50%;border:none;flex:none;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .inbar .mic{background:#ece3fb;color:#6a5aa0;}
+  .inbar .send{background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;}
+
+  /* ===== 通用卡片/控件 ===== */
+  .seg{font-size:12px;color:var(--p1);font-weight:700;margin:14px 2px 8px;letter-spacing:.3px;}
+  .seg:first-child{margin-top:2px;}
+  .card{background:var(--card);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.55);
+    border-radius:18px;padding:6px 14px;box-shadow:var(--shadow-sm);}
+  .row{display:flex;align-items:center;gap:11px;padding:12px 2px;border-bottom:1px solid var(--line);}
+  .row:last-child{border-bottom:none;}
+  .row .ri{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    font-size:17px;flex:none;background:linear-gradient(160deg,#efe6ff,#fbe7f0);}
+  .row .rt{flex:1;min-width:0;}
+  .row .rt .t1{font-size:13.5px;font-weight:600;color:#4a3f70;}
+  .row .rt .t2{font-size:11px;color:var(--ink-faint);margin-top:1px;}
+  .row .rr{font-size:12px;color:var(--ink-soft);}
+  .pick{font-size:12px;padding:5px 12px;border-radius:11px;background:rgba(139,108,240,.12);color:var(--p1);font-weight:700;cursor:pointer;}
+  .scroll{flex:1;overflow-y:auto;scrollbar-width:none;}
+  .scroll::-webkit-scrollbar{display:none;}
+
+  /* 音色芯片 */
+  .chips{display:flex;gap:8px;flex-wrap:wrap;padding:4px 0;}
+  .chip{font-size:12.5px;padding:8px 14px;border-radius:13px;background:#fff;color:var(--ink-soft);cursor:pointer;
+    border:1.5px solid transparent;box-shadow:var(--shadow-sm);}
+  .chip.on{border-color:var(--p1);color:var(--p1);font-weight:700;background:rgba(139,108,240,.08);}
+  .chip small{display:block;font-size:9.5px;color:var(--ink-faint);margin-top:1px;font-weight:400;}
+
+  /* 滑块 */
+  .slider{display:flex;align-items:center;gap:10px;padding:9px 2px;}
+  .slider .sl{font-size:12.5px;color:#4a3f70;width:42px;flex:none;}
+  .slider .track{flex:1;height:5px;border-radius:3px;background:#e0d6f4;position:relative;}
+  .slider .track i{position:absolute;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--p1),var(--p2));}
+  .slider .knob{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:#fff;
+    transform:translate(-50%,-50%);box-shadow:0 2px 6px rgba(120,80,180,.4);border:2px solid var(--p1);}
+  .slider .val{font-size:11.5px;color:var(--p1);font-weight:700;width:32px;text-align:right;flex:none;}
+
+  /* 画幅 / 段选 */
+  .segbtns{display:flex;gap:8px;}
+  .segbtns .sb{flex:1;text-align:center;font-size:12.5px;padding:11px 0;border-radius:13px;background:#fff;
+    color:var(--ink-soft);cursor:pointer;border:1.5px solid transparent;box-shadow:var(--shadow-sm);}
+  .segbtns .sb.on{border-color:var(--p1);color:var(--p1);font-weight:700;background:rgba(139,108,240,.08);}
+  .segbtns .sb small{display:block;font-size:9.5px;color:var(--ink-faint);font-weight:400;margin-top:2px;}
+
+  /* 形象网格 */
+  .ava-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .ava-card{border-radius:16px;overflow:hidden;position:relative;cursor:pointer;border:2px solid transparent;
+    aspect-ratio:3/4;background:linear-gradient(170deg,#cbb0ec,#f0cfdf);display:flex;align-items:flex-end;justify-content:center;}
+  .ava-card.on{border-color:var(--p1);box-shadow:0 0 0 3px rgba(139,108,240,.22);}
+  .ava-card .fc{font-size:60px;margin-bottom:6px;filter:drop-shadow(0 4px 8px rgba(120,80,180,.3));}
+  .ava-card .nm{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:11px;color:#fff;font-weight:700;
+    text-shadow:0 1px 4px rgba(80,50,140,.6);}
+  .ava-card .badge{position:absolute;top:6px;right:6px;font-size:9px;background:rgba(255,255,255,.85);color:var(--p1);
+    padding:1px 7px;border-radius:7px;font-weight:700;}
+  .upload{border:2px dashed rgba(139,108,240,.45);border-radius:16px;aspect-ratio:3/4;display:flex;
+    flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--p1);cursor:pointer;background:rgba(255,255,255,.4);}
+  .upload .ui{font-size:30px;}.upload .ut{font-size:11.5px;font-weight:700;}.upload .us{font-size:9.5px;color:var(--ink-faint);}
+
+  /* 提示词输入 */
+  .prompt-box{background:rgba(255,255,255,.6);border:1px solid var(--line);border-radius:14px;padding:11px 13px;
+    font-size:12px;color:var(--ink-soft);line-height:1.5;min-height:60px;}
+  .btn{display:block;width:100%;text-align:center;padding:13px;border-radius:15px;border:none;
+    background:linear-gradient(90deg,var(--p1),var(--p2));color:#fff;font-size:14px;font-weight:700;
+    cursor:pointer;box-shadow:var(--shadow);margin-top:10px;}
+  .btn.ghost{background:rgba(255,255,255,.7);color:var(--p1);box-shadow:var(--shadow-sm);}
+
+  /* 性格卡 */
+  .persona{display:flex;align-items:center;gap:11px;padding:12px;border-radius:14px;background:#f6f2fe;margin-bottom:8px;
+    cursor:pointer;border:1.5px solid transparent;}
+  .persona.on{border-color:var(--p1);background:rgba(139,108,240,.08);}
+  .persona .em{font-size:24px;flex:none;}
+  .persona .nm{font-size:13.5px;font-weight:700;color:#4a3f70;}
+  .persona .ds{font-size:10.5px;color:var(--ink-faint);margin-top:1px;}
+
+  /* 欢迎页 */
+  .welcome{align-items:center;justify-content:center;text-align:center;padding:46px 24px 30px;}
+  .welcome .lgo{font-size:64px;margin-bottom:8px;filter:drop-shadow(0 8px 16px rgba(120,80,180,.4));}
+  .welcome h1{font-size:25px;font-weight:800;color:#4a3f7a;margin-bottom:6px;}
+  .welcome .slo{font-size:12.5px;color:#7a6fa8;line-height:1.7;margin-bottom:24px;}
+  .welcome .feats{display:flex;gap:8px;margin-bottom:28px;}
+  .welcome .ft{flex:1;background:rgba(255,255,255,.6);border-radius:14px;padding:12px 6px;box-shadow:var(--shadow-sm);}
+  .welcome .ft .fi{font-size:24px;}.welcome .ft .fn{font-size:10.5px;color:#564b78;font-weight:600;margin-top:4px;}
+
+  /* 面板标题 */
+  .panel-h{font-size:18px;font-weight:800;color:#4a3f70;margin-bottom:2px;}
+  .panel-s{font-size:11.5px;color:var(--ink-faint);margin-bottom:10px;}
+
+  .legend{width:100%;max-width:880px;font-size:12.5px;color:#6a608c;background:rgba(255,255,255,.55);
+    border-radius:14px;padding:16px 20px;line-height:1.95;margin-top:6px;}
+  .legend b{color:#4a3f70;}
+  .legend code{background:rgba(139,108,240,.12);color:var(--p1);padding:1px 6px;border-radius:5px;font-size:11.5px;}
+</style>
+</head>
+<body>
+  <div class="lab">📱 <b>写实数字人对话 · 高保真设计稿</b>　关怀岛屿风格 · 6 屏（欢迎 / 对话 / 聆听 / 生成中 / 配置 / 形象 / 音色性格）</div>
+
+  <!-- ① 欢迎页 -->
+  <div class="col-title">① 欢迎页</div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div><div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="scrn-tag">欢迎</div>
+    <div class="page welcome">
+      <div class="lgo">🌙</div>
+      <h1>小忆数字人</h1>
+      <div class="slo">一个会听你说话、会对口型回应的<br>写实陪伴形象 · 治愈系</div>
+      <div class="feats">
+        <div class="ft"><div class="fi">🧠</div><div class="fn">qwen3-max</div></div>
+        <div class="ft"><div class="fi">🔊</div><div class="fn">龙婉女声</div></div>
+        <div class="ft"><div class="fi">🎭</div><div class="fn">EMO 对口型</div></div>
+      </div>
+      <button class="btn">进入对话 →</button>
+      <button class="btn ghost">⚙️ 先去设置形象与性格</button>
+    </div>
+  </div></div>
+
+  <!-- ② 对话页 · 待机 -->
+  <div class="col-title">② 对话页 · 待机/说话</div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div><div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="scrn-tag">对话</div>
+    <div class="page">
+      <div class="topbar"><div class="iconbtn">‹</div><div class="title">小忆 · 在线</div><div class="iconbtn">⚙️</div></div>
+      <div class="stage s-speak">
+        <span class="moon">🌙</span><span class="lighthouse">🗼</span>
+        <span class="star" style="left:20%;top:30px;width:4px;height:4px"></span>
+        <span class="star" style="left:74%;top:22px;width:3px;height:3px;animation-delay:1s"></span>
+        <span class="star" style="left:86%;top:70px;width:5px;height:5px;animation-delay:.5s"></span>
+        <div class="statepill speak">说话中</div>
+        <div class="avatar"><span class="avatar-tag">小忆</span><div class="face">👩🏻</div></div>
+        <div class="mic-zone"><div class="wave"><i></i><i></i><i></i><i></i><i></i></div></div>
+      </div>
+      <div class="chat">
+        <div class="msg ai">你来啦～我一直在这儿等你呢，今天还好吗？</div>
+        <div class="msg me">今天有点累</div>
+        <div class="msg ai">辛苦啦，先靠一会儿，别急，我陪着你呢。</div>
+      </div>
+      <div class="quick"><span>今天过得怎么样</span><span>讲个开心的事</span><span>我想你了</span></div>
+      <div class="inbar"><button class="ib mic">🎤</button><input placeholder="和小忆说点什么…"><button class="ib send">➤</button></div>
+    </div>
+  </div></div>
+
+  <!-- ③ 对话页 · 聆听 -->
+  <div class="col-title">③ 对话页 · 聆听</div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div><div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="scrn-tag">聆听</div>
+    <div class="page">
+      <div class="topbar"><div class="iconbtn">‹</div><div class="title">小忆 · 在线</div><div class="iconbtn">⚙️</div></div>
+      <div class="stage s-listen">
+        <span class="moon">🌙</span>
+        <span class="star" style="left:20%;top:30px;width:4px;height:4px"></span>
+        <span class="star" style="left:74%;top:22px;width:3px;height:3px;animation-delay:1s"></span>
+        <div class="statepill listen">聆听中…</div>
+        <div class="avatar"><span class="avatar-tag">小忆</span><div class="face">👩🏻</div></div>
+        <div class="mic-zone">
+          <div class="wave" style="--c:var(--green)"><i style="background:#eafff5"></i><i style="background:#eafff5"></i><i style="background:#eafff5"></i><i style="background:#eafff5"></i><i style="background:#eafff5"></i></div>
+          <div class="bigmic" style="background:linear-gradient(160deg,#37b87c,#5fcf95)">🎤</div>
+        </div>
+      </div>
+      <div class="chat">
+        <div class="msg ai">你来啦～今天还好吗？</div>
+        <div class="msg me" style="opacity:.6">（正在说话…）</div>
+      </div>
+      <div class="quick"><span>今天过得怎么样</span><span>讲个开心的事</span><span>我想你了</span></div>
+      <div class="inbar"><button class="ib mic" style="background:#d6f5e6">🎤</button><input placeholder="松开结束 · 正在听你说…"><button class="ib send">➤</button></div>
+    </div>
+  </div></div>
+
+  <!-- ④ 生成中态 -->
+  <div class="col-title">④ 对话页 · 思考/生成中</div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div><div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="scrn-tag">生成中</div>
+    <div class="page">
+      <div class="topbar"><div class="iconbtn">‹</div><div class="title">小忆 · 在线</div><div class="iconbtn">⚙️</div></div>
+      <div class="stage s-think">
+        <span class="moon">🌙</span>
+        <div class="statepill gen">生成中</div>
+        <div class="avatar"><span class="avatar-tag">小忆</span><div class="face">👩🏻</div></div>
+        <div class="gen-mask">
+          <div class="gen-ring"></div>
+          <div class="gt">形象正在对口型…</div>
+          <div class="gen-bar"><i></i></div>
+          <div class="gs">EMO 生成视频中 · 约需十几秒</div>
+        </div>
+      </div>
+      <div class="chat">
+        <div class="msg me">给我讲个开心的事</div>
+        <div class="msg ai">好呀～昨儿小区花全开了，紫莹莹一片，可好看了！</div>
+      </div>
+      <div class="quick"><span>今天过得怎么样</span><span>讲个开心的事</span><span>我想你了</span></div>
+      <div class="inbar"><button class="ib mic">🎤</button><input placeholder="小忆正在准备回应…" disabled><button class="ib send">➤</button></div>
+    </div>
+  </div></div>
+
+  <!-- ⑤ 配置面板 -->
+  <div class="col-title">⑤ 配置面板</div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div><div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="scrn-tag">配置</div>
+    <div class="page">
+      <div class="topbar"><div class="iconbtn">‹</div><div class="title">数字人设置</div><div class="iconbtn">✓</div></div>
+      <div class="scroll">
+        <div class="panel-h">调一调你的数字人</div>
+        <div class="panel-s">形象 / 声音 / 性格 · 改完即时生效</div>
+
+        <div class="seg">🎭 形象</div>
+        <div class="card"><div class="row" onclick="">
+          <div class="ri">🖼️</div><div class="rt"><div class="t1">当前：小忆（默认美女）</div><div class="t2">治愈系 · 写实 · 3:4 竖屏</div></div><div class="pick">更换 ›</div>
+        </div></div>
+
+        <div class="seg">🔊 音色</div>
+        <div class="card"><div class="chips">
+          <div class="chip on">龙婉<small>温柔女声</small></div>
+          <div class="chip">龙橙<small>活泼女声</small></div>
+          <div class="chip">龙华<small>知性女声</small></div>
+        </div></div>
+
+        <div class="seg">😊 性格</div>
+        <div class="card"><div class="row">
+          <div class="ri">💜</div><div class="rt"><div class="t1">温柔陪伴</div><div class="t2">轻声慢语，先接住情绪</div></div><div class="pick">更换 ›</div>
+        </div></div>
+
+        <div class="seg">🖼️ 画幅（影响费用）</div>
+        <div class="segbtns">
+          <div class="sb">1:1 方形<small>0.08 元/秒 · 省</small></div>
+          <div class="sb on">3:4 竖屏<small>0.16 元/秒 · 好看</small></div>
+        </div>
+
+        <div class="seg">🎚️ 语音微调</div>
+        <div class="card">
+          <div class="slider"><span class="sl">语速</span><div class="track"><i style="width:50%"></i><span class="knob" style="left:50%"></span></div><span class="val">1.0</span></div>
+          <div class="slider"><span class="sl">语调</span><div class="track"><i style="width:50%"></i><span class="knob" style="left:50%"></span></div><span class="val">1.0</span></div>
+          <div class="slider"><span class="sl">音量</span><div class="track"><i style="width:50%"></i><span class="knob" style="left:50%"></span></div><span class="val">50</span></div>
+        </div>
+        <button class="btn">完成</button>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- ⑥ 形象选择页 -->
+  <div class="col-title">⑥ 形象选择 / 上传 / 生成</div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div><div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="scrn-tag">形象</div>
+    <div class="page">
+      <div class="topbar"><div class="iconbtn">‹</div><div class="title">选择数字人形象</div><div class="iconbtn">✨</div></div>
+      <div class="scroll">
+        <div class="seg">预设形象库</div>
+        <div class="ava-grid">
+          <div class="ava-card on"><span class="badge">默认</span><div class="fc">👩🏻</div><div class="nm">小忆 · 温柔</div></div>
+          <div class="ava-card"><div class="fc">👩🏻‍🦰</div><div class="nm">暖暖 · 活泼</div></div>
+          <div class="ava-card"><div class="fc">🧑🏻‍🦱</div><div class="nm">知微 · 知性</div></div>
+          <div class="upload"><div class="ui">⬆️</div><div class="ut">上传本地图</div><div class="us">自动转公网用</div></div>
+        </div>
+        <div class="seg">用提示词生成新形象</div>
+        <div class="prompt-box">一位温柔治愈的年轻亚洲女性，正面肖像，柔和自然微笑，简洁柔光纯色背景，写实摄影风格，高质量…</div>
+        <button class="btn">✨ 生成形象</button>
+        <div class="card" style="margin-top:10px;padding:11px 14px;">
+          <div style="font-size:11px;color:var(--ink-faint);line-height:1.6;">选定后会自动做一次人脸检测（EMO detect），缓存口型坐标，之后对话直接复用。</div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- ⑦ 性格选择页 -->
+  <div class="col-title">⑦ 性格选择</div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div><div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="scrn-tag">性格</div>
+    <div class="page">
+      <div class="topbar"><div class="iconbtn">‹</div><div class="title">选择性格</div><div class="iconbtn"></div></div>
+      <div class="scroll">
+        <div class="seg">预设性格</div>
+        <div class="persona on"><span class="em">💜</span><div><div class="nm">温柔陪伴</div><div class="ds">轻声慢语，先接住情绪，多用「我在呢」</div></div></div>
+        <div class="persona"><span class="em">🧭</span><div><div class="nm">知性可靠</div><div class="ds">沉稳靠谱，把事说清楚，给简单建议</div></div></div>
+        <div class="persona"><span class="em">☀️</span><div><div class="nm">阳光活泼</div><div class="ds">热情有活力，带动情绪，多用「太好啦」</div></div></div>
+        <div class="seg">自定义</div>
+        <div class="prompt-box">在这里写你想要的语气、口头禅、关心的话题…（会作为 system prompt 注入 qwen3-max）</div>
+        <div class="seg">回复长度</div>
+        <div class="segbtns">
+          <div class="sb on">简短<small>40字内 · 适合播报</small></div>
+          <div class="sb">适中<small>更完整</small></div>
+        </div>
+        <button class="btn">保存性格</button>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="legend">
+    <b>🧭 设计说明</b>：本稿为<b>写实数字人对话 demo</b> 的高保真视觉稿，沿用<b>关怀岛屿</b>设计系统（主紫 <code>#8b6cf0</code> / <code>#a78bfa</code>、粉 <code>#e9789f</code>、毛玻璃卡片、紫粉渐变手机壳）。<br>
+    <b>数字人舞台</b>：写实美女形象（此处用渐变人形 + emoji 占位，正式版替换为 <code>文生图</code> 生成的形象图 / <code>EMO</code> 对口型视频）；含<b>月亮/星空/柔光</b>治愈背景、<b>状态光环</b>（待机紫 / 聆听绿 / 生成橙 / 说话紫高亮）、<b>声波 + 大麦克风</b>。<br>
+    <b>状态机</b>：待机 → 聆听(按麦) → 思考/生成中(EMO 异步出视频) → 说话(播对口型视频) → 回待机。<br>
+    <b>配置</b>：形象（默认/预设/<code>上传本地图</code>/<code>提示词生成</code>）· 音色（龙婉/龙橙/龙华）· 性格（预设+自定义 prompt）· 画幅（1:1 省 / 3:4 好看）· 语速语调音量。<br>
+    <b>技术</b>：全部接阿里百炼一个 <code>DASHSCOPE_API_KEY</code> —— <code>qwen3-max</code>(脑) + <code>cosyvoice-v2</code>(声) + <code>emo-v1</code>(脸·对口型) + <code>文生图</code>(形象) + <code>百炼临时存储</code>(上传)。
+  </div>
+</body>
+</html>
