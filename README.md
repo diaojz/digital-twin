@@ -89,9 +89,10 @@ LLM_PROVIDER=ollama
 OLLAMA_MODEL=qwen2.5:7b
 ```
 
-### 3. 启动项目
+### 3. 构建前端并启动
 
 ```bash
+npm run build    # 构建 Vue 前端（首次和前端代码更新后需要，几秒钟）
 npm start
 ```
 
@@ -163,7 +164,7 @@ PORT=3100
 
 ```bash
 .venv-asr/bin/python asr_server.py   # 终端 1：Whisper（做了前置 2 才需要）
-npm start                            # 终端 2：主服务
+npm run build && npm start           # 终端 2：构建前端 + 主服务
 # 浏览器开 http://localhost:3100
 ```
 
@@ -188,8 +189,17 @@ digital-twin/
 │   └── providers/                    # 对口型视频 provider（三选一）：emo / omnihuman / seedance
 ├── scripts/
 │   └── test-video-provider.js        # 视频 provider 自测脚本（「填 key 即测」唯一入口）
+├── web/                              # Vue 3 前端工程（Vite + Pinia）
+│   ├── index.html                    # Vite 入口
+│   └── src/
+│       ├── App.vue                   # 主组件：welcome / chat / settings 视图编排
+│       ├── api/client.js             # 全部 /api 请求封装（含 SSE 流式）
+│       ├── stores/                   # Pinia：chat（消息+状态机）/ settings / avatar（形象+话术库）
+│       ├── composables/              # useAudioQueue（TTS队列）/ useRecorder（录音+VAD+双ASR）/ useChatStream（SSE）
+│       └── components/               # AvatarStage / ChatPanel / SettingsDrawer + 设置子组件
+├── vite.config.js                    # dev 代理 /api 与 /avatars → 后端；build 产出 dist/
 ├── public/
-│   ├── index.html                    # 单页前端：聊天、形象、语音、对口型、设置、记忆面板
+│   ├── index.legacy.html             # 旧版单文件前端（对照保留，dist/ 缺失时自动兜底）
 │   └── avatars/                      # 形象图 + 对口型视频本地缓存（gitignore）
 ├── docs/
 │   ├── PRD.md                        # 真人版产品规范
@@ -208,7 +218,26 @@ digital-twin/
 .env
 node_modules/
 data/memory.db
+dist/
 ```
+
+## 前端开发（Vue 3 + Vite）
+
+前端已从单文件 HTML 迁移为 Vue 3 工程（2026-06），日常开发用 HMR 热更新：
+
+```bash
+npm start            # 终端 1：后端（3000）
+npm run dev:web      # 终端 2：Vite dev server（5173，/api 与 /avatars 自动代理到后端）
+# 开发时访问 http://localhost:5173（改代码即时生效）
+```
+
+正式运行 / 部署前构建一次即可：
+
+```bash
+npm run build        # 产出 dist/，npm start 自动优先服务 dist
+```
+
+`public/index.legacy.html` 是迁移前的单文件旧版（纯对照用途，dist/ 缺失时服务端会自动兜底到 public/）。
 
 ## 能力拆解
 
@@ -396,7 +425,7 @@ node scripts/test-video-provider.js omnihuman --real
 项目可以部署到一台 Linux 云服务器，给别人一个链接直接体验（已验证可跑通：Ubuntu + Node 22 + caddy）。和本地版的差异：语音输入用 `ASR_PROVIDER=dashscope`（云服务器没有 mlx-whisper），TTS/形象/对口型本来就是云端的，不受影响。
 
 ```bash
-# 1. 服务器上装 Node 22，clone 本仓库，npm install
+# 1. 服务器上装 Node 22，clone 本仓库，npm install && npm run build
 # 2. .env 关键配置：
 #    LLM_PROVIDER=dashscope / AVATAR_PROVIDER=realhuman / DASHSCOPE_API_KEY=sk-xxx
 #    ASR_PROVIDER=dashscope
