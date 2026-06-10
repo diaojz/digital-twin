@@ -1,6 +1,9 @@
 node_modules/
+# 所有 .env 变体一律不进库（.env.local / .env.bak 等都可能含真实 key，开源仓决不能漏）
 .env
-# 但放行配置模板（学员需要它当样板复制成 .env）
+.env.*
+*.env.bak
+# 但放行配置模板（学员需要它当样板复制成 .env，里面只有占位符）
 !.env.example
 
 # Python 虚拟环境（体积大，本地各自创建）
