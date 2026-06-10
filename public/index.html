@@ -268,7 +268,7 @@
             <div class="ri">🎬</div><div class="rt"><div class="t1">对话时生成对口型</div><div class="t2">开：每句现场生成嘴型(慢~40s)；关：对话只用缓存视频+语音，更流畅</div></div><div class="toggle" id="lipsyncToggle"></div>
           </div>
           <div style="padding:10px 2px;border-bottom:1px solid var(--line);">
-            <div style="font-size:12px;color:#4a3f70;font-weight:600;margin-bottom:6px;">预生成对口型（在这里等，对话就秒出）</div>
+            <div style="font-size:12px;color:#4a3f70;font-weight:600;margin-bottom:6px;">预生成对口型话术库（对话说到意思相近的话，秒出视频）</div>
             <textarea class="prompt-box" id="lipsyncText" placeholder="输入一句小忆常说的话，比如开场白…" style="min-height:46px;"></textarea>
             <button class="btn ghost" id="lipsyncGenBtn" style="margin-top:8px;">🎬 生成这句的对口型视频</button>
             <div id="lipsyncProgress" style="display:none;margin-top:8px;">
@@ -504,6 +504,12 @@ async function sendMessage(text){
     const data = await r.json();
     clearGenTimer();          // 拿到结果，停止计时
     if (r.ok && data.videoUrl){
+      // 命中话术库（语义匹配）：视频里说的是库里那句，把气泡文字和对话历史也同步成它，避免音字不一致
+      if (data.matchedText && data.matchedText !== reply){
+        aiDiv.textContent = data.matchedText;
+        state.messages[state.messages.length - 1].content = data.matchedText;
+        toast('⚡ 命中预生成话术，秒出对口型', 2200);
+      }
       setState('speak'); showVideo(data.videoUrl);
       await waitVideoEnd();
     } else if (data.audioUrl){
@@ -854,7 +860,7 @@ function bindSettings(){
       });
       const d = await r.json();
       if (r.ok && d.videoUrl){
-        bar.style.width = '100%'; ptext.textContent = '✅ 完成！已缓存，对话说这句秒出对口型';
+        bar.style.width = '100%'; ptext.textContent = '✅ 完成！已入话术库，对话说到意思相近的话秒出对口型';
         toast('✅ 已生成并缓存', 3000);
       } else throw new Error(d.videoError || d.error || '生成失败');
     } catch(e){

@@ -27,6 +27,8 @@ import os from 'os';
 import { createHash } from 'crypto';
 import {
   MEMORY_ENABLED,
+  getEmbedding,
+  cosineSim,
   initDb,
   buildMemoryContext,
   extractAndSaveMemory,
@@ -201,16 +203,58 @@ async function downloadFigure(imageUrl) {
   return '/avatars/current.png';
 }
 
-// 对口型视频本地缓存：同样的「文字+音色+语音参数+形象」复用已生成的视频，不重复烧 EMO
+// 对口型视频本地缓存 = 「话术库」：预生成的每句话存下 原文 + 句向量 + 视频。
+// 命中分三层（一层比一层宽松）：
+//   1. 精确命中：文字+音色+语音参数+形象 完全一致（MD5 键）
+//   2. 归一化命中：去掉标点/空格后文字相同（同一形象下）
+//   3. 语义命中：LLM 回复和库里某句意思相近（Ollama embedding 余弦相似度 ≥ 阈值）
+// 后两层命中时会把「库里那句」当作最终回复返回给前端（matchedText），保证嘴型和字幕一致。
 const VIDEO_DIR = join(__dirname, 'public', 'avatars', 'videos');
 const SPEAK_CACHE_FILE = join(__dirname, 'data', 'realhuman-speak-cache.json');
-let speakCache = {};   // { cacheKey: '/avatars/videos/<key>.mp4' }
+// 阈值按 nomic-embed-text 中文实测校准：同义句 0.77~1.00，不同义句 0.57~0.72，0.75 刚好分界
+const SPEAK_MATCH_THRESHOLD = parseFloat(process.env.SPEAK_MATCH_THRESHOLD || '0.75');
+let speakCache = {};   // { cacheKey: { path, text, voice, figVer, embedding } }
 try {
   if (existsSync(SPEAK_CACHE_FILE)) speakCache = JSON.parse(readFileSync(SPEAK_CACHE_FILE, 'utf-8'));
+  // 老格式兼容：早期索引的值是纯路径字符串（没存原文），包成对象，仍可精确命中，只是参与不了语义匹配
+  for (const k of Object.keys(speakCache)) {
+    if (typeof speakCache[k] === 'string') speakCache[k] = { path: speakCache[k] };
+  }
 } catch (e) { console.warn('[RealHuman] 视频缓存索引读取失败（忽略）:', e.message); }
 
 function speakCacheKey(parts) {
   return createHash('md5').update(JSON.stringify(parts)).digest('hex');
+}
+
+// 文本归一化：去掉标点、空白，转小写——只比"说了什么字"，不比怎么断句
+function normalizeSpeakText(t) {
+  return t.replace(/[\s，。！？、：；·…—～~""''（）【】《》,.!?:;'"()\[\]<>-]+/g, '').toLowerCase();
+}
+
+/**
+ * 在话术库里找和 text 意思相近的一句（仅限当前形象的条目）
+ * 返回 { entry, sim, how } 或 null
+ */
+async function findSpeakMatch(text, figVer) {
+  const candidates = Object.values(speakCache).filter(e => e.text && e.figVer === figVer);
+  if (candidates.length === 0) return null;
+
+  // 第 2 层：归一化全等（不需要 embedding，标点/空格差异直接命中）
+  const norm = normalizeSpeakText(text);
+  for (const e of candidates) {
+    if (normalizeSpeakText(e.text) === norm) return { entry: e, sim: 1, how: '归一化全等' };
+  }
+
+  // 第 3 层：语义相似（Ollama embedding 未就绪时静默跳过，不影响正常生成链路）
+  const queryVec = await getEmbedding(text);
+  if (!queryVec) return null;
+  let best = null;
+  for (const e of candidates) {
+    if (!e.embedding) continue;
+    const sim = cosineSim(queryVec, e.embedding);
+    if (!best || sim > best.sim) best = { entry: e, sim, how: '语义相似' };
+  }
+  return best && best.sim >= SPEAK_MATCH_THRESHOLD ? best : null;
 }
 async function downloadVideo(videoUrl, key) {
   const resp = await fetch(videoUrl);
@@ -1018,14 +1062,40 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
   if (typeof volume === 'number') ttsOpts.volume = volume;
   console.log('[RealHuman/speak] 开始，text:', text.slice(0, 30) + '...', 'voice:', usedVoice);
 
-  // 视频缓存命中：同样的「文字+音色+语音参数+形象」→ 直接复用已生成视频，秒回、不烧 EMO
+  // 话术库第 1 层（精确命中）：「文字+音色+语音参数+形象」完全一致 → 秒回、不烧 EMO
   const figVer = (rhFigure && rhFigure.version) || 'noimg';
   const cacheKey = speakCacheKey({ text: text.trim(), voice: usedVoice, rate, pitch, volume, figVer });
   if (rhFigure && speakCache[cacheKey]) {
-    const localPath = join(__dirname, 'public', speakCache[cacheKey].replace(/^\//, ''));
+    const entry = speakCache[cacheKey];
+    const localPath = join(__dirname, 'public', entry.path.replace(/^\//, ''));
     if (existsSync(localPath)) {
-      console.log('[RealHuman/speak] 命中视频缓存:', cacheKey);
-      return res.json({ videoUrl: speakCache[cacheKey], cached: true });
+      // 老格式条目补登记：早期索引只存了路径没存原文。这次既然拿到了原文，
+      // 补上原文 + 句向量（异步），老视频就也能参与语义匹配了——在设置里重输同一句话即可触发
+      if (!entry.text) {
+        entry.text = text.trim(); entry.voice = usedVoice; entry.figVer = figVer;
+        writeFileSync(SPEAK_CACHE_FILE, JSON.stringify(speakCache));
+        getEmbedding(text.trim()).then(vec => {
+          if (vec) {
+            entry.embedding = vec;
+            try { writeFileSync(SPEAK_CACHE_FILE, JSON.stringify(speakCache)); } catch (_) {}
+          }
+        });
+      }
+      console.log('[RealHuman/speak] 精确命中视频缓存:', cacheKey);
+      return res.json({ videoUrl: entry.path, cached: true });
+    }
+  }
+
+  // 话术库第 2/3 层（归一化 / 语义命中）：LLM 回复和预生成的某句意思相近 → 直接复用那句的视频。
+  // matchedText 返回库里的原句，前端会把字幕同步成它，保证「嘴上说的」和「屏幕显示的」一致。
+  if (rhFigure) {
+    const match = await findSpeakMatch(text.trim(), figVer);
+    if (match) {
+      const localPath = join(__dirname, 'public', match.entry.path.replace(/^\//, ''));
+      if (existsSync(localPath)) {
+        console.log(`[RealHuman/speak] 话术库命中（${match.how}，相似度 ${match.sim.toFixed(3)}）: ${match.entry.text.slice(0, 20)}...`);
+        return res.json({ videoUrl: match.entry.path, cached: true, matchedText: match.entry.text });
+      }
     }
   }
 
@@ -1059,11 +1129,12 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
       ext_bbox: rhFigure.extBbox,
     });
     console.log('[RealHuman/speak] 视频 URL:', videoUrl);
-    // 下载视频到本地缓存（持久、不过期）并记入索引，下次同样的话直接复用、不重新生成
+    // 下载视频到本地（持久、不过期）并记入话术库：存原文 + 句向量，之后对话说到意思相近的话直接复用
     let outVideo = videoUrl;
     try {
       outVideo = await downloadVideo(videoUrl, cacheKey);
-      speakCache[cacheKey] = outVideo;
+      const embedding = await getEmbedding(text.trim());   // Ollama 未就绪时为 null，仅失去语义匹配能力
+      speakCache[cacheKey] = { path: outVideo, text: text.trim(), voice: usedVoice, figVer, embedding };
       writeFileSync(SPEAK_CACHE_FILE, JSON.stringify(speakCache));
     } catch (e) {
       console.warn('[RealHuman/speak] 视频下载缓存失败，回退用临时 URL:', e.message);

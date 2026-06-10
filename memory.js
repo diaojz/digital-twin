@@ -478,6 +478,8 @@ function setProfile(profileObj) {
 // ── 导出 ─────────────────────────────────────────────────────
 export {
   MEMORY_ENABLED,
+  getEmbedding,
+  cosineSim,
   initDb,
   buildMemoryContext,
   extractAndSaveMemory,
