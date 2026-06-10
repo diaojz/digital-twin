@@ -98,6 +98,8 @@
   .msg.me{align-self:flex-end;background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;border-bottom-right-radius:5px;}
   .msg.sys{align-self:center;background:rgba(255,255,255,.5);color:var(--ink-soft);font-size:11.5px;padding:5px 12px;border-radius:11px;}
   .quick{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 8px;flex:none;}
+  /* 话术库 chip：点击让小忆直接说这句（秒出缓存视频，不走 LLM） */
+  .quick span.lib{max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px dashed var(--p1);background:rgba(255,255,255,.82);}
   .quick span{font-size:11.5px;padding:6px 12px;border-radius:13px;background:rgba(255,255,255,.6);color:var(--p1);
     font-weight:600;cursor:pointer;box-shadow:var(--shadow-sm);}
   .inbar{display:flex;gap:8px;align-items:center;flex:none;}
@@ -234,7 +236,7 @@
         </div>
       </div>
       <div class="chat" id="chat"></div>
-      <div class="quick">
+      <div class="quick" id="quickRow">
         <span onclick="quickSend('今天过得怎么样')">今天过得怎么样</span>
         <span onclick="quickSend('讲个开心的事')">讲个开心的事</span>
         <span onclick="quickSend('我想你了')">我想你了</span>
@@ -278,6 +280,10 @@
               <div id="lipsyncProgText" style="font-size:10.5px;color:var(--ink-faint);margin-top:5px;text-align:center;">生成中…</div>
             </div>
           </div>
+          <div style="padding:10px 2px;border-bottom:1px solid var(--line);">
+            <div style="font-size:12px;color:#4a3f70;font-weight:600;margin-bottom:6px;">已生成的视频（存在本地，刷新/重启都不丢）</div>
+            <div id="speakLibList" style="display:flex;flex-direction:column;gap:6px;"></div>
+          </div>
           <div class="row" id="clearVideoRow" style="cursor:pointer;">
             <div class="ri">🗑️</div><div class="rt"><div class="t1">清除视频缓存</div><div class="t2">清掉所有已生成的对口型视频</div></div><div class="pick">清除</div>
           </div>
@@ -288,6 +294,9 @@
           <div class="chip on" data-voice="longwan_v2">龙婉<small>温柔女声</small></div>
           <div class="chip" data-voice="longcheng_v2">龙橙<small>活泼女声</small></div>
           <div class="chip" data-voice="longhua_v2">龙华<small>知性女声</small></div>
+          <div class="chip" data-voice="longshu_v2">龙书<small>沉稳男声</small></div>
+          <div class="chip" data-voice="longxiaocheng_v2">龙小诚<small>磁性男声</small></div>
+          <div class="chip" data-voice="longfei_v2">龙飞<small>热血男声</small></div>
         </div></div>
 
         <div class="seg">😊 性格</div>
@@ -352,6 +361,10 @@
         </div>
 
         <div class="seg">提示词生成新形象</div>
+        <div class="chips" id="figureTplChips" style="margin-bottom:8px;">
+          <div class="chip on" data-tpl="一位温柔治愈的年轻亚洲女性，正面肖像，清晰五官，柔和自然微笑，简洁柔光纯色背景，写实摄影风格，高质量">👩 温柔女性</div>
+          <div class="chip" data-tpl="一位阳光干净的年轻亚洲男性，正面肖像，清晰五官，自然微笑，简洁柔光纯色背景，写实摄影风格，高质量">👨 阳光男性</div>
+        </div>
         <textarea class="prompt-box" id="figurePrompt">一位温柔治愈的年轻亚洲女性，正面肖像，清晰五官，柔和自然微笑，简洁柔光纯色背景，写实摄影风格，高质量</textarea>
         <button class="btn" id="genFigureBtn">✨ 生成形象（约 30-60 秒）</button>
         <button class="btn ghost" id="resetFigureBtn">🗑️ 重置形象（清缓存，下次重新生成）</button>
@@ -419,6 +432,62 @@ function go(view){
   state.view = view;
   document.querySelectorAll('.view').forEach(v => v.classList.remove('on'));
   $('view-' + view).classList.add('on');
+  if (view === 'settings') renderSpeakLib();   // 每次进设置都刷新话术库列表
+  if (view === 'chat') renderQuickChips();     // 回聊天页刷新话术快捷 chips
+}
+
+// ====== 话术库列表（已生成的对口型视频，本地持久保存） ======
+async function renderSpeakLib(){
+  const box = $('speakLibList');
+  if (!box) return;
+  try {
+    const r = await fetch('/api/avatar/realhuman/speak-cache');
+    const { items = [] } = await r.json();
+    box.innerHTML = '';
+    if (!items.length){
+      box.innerHTML = '<div style="font-size:11px;color:var(--ink-faint);">还没有视频，用上面输入框预生成一句试试</div>';
+      return;
+    }
+    items.forEach(it => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;background:#f4f0fb;border-radius:10px;padding:7px 10px;';
+      // 旧形象 = 换形象前生成的，脸对不上、对话不再命中，但仍可手动重播
+      if (!it.current){
+        const tag = document.createElement('span');
+        tag.style.cssText = 'font-size:9.5px;color:#b08aa0;border:1px solid #e3c8d6;border-radius:6px;padding:1px 5px;flex:none;';
+        tag.textContent = '旧形象';
+        row.appendChild(tag);
+      }
+      const txt = document.createElement('div');
+      txt.style.cssText = 'flex:1;min-width:0;font-size:11.5px;color:#4a3f70;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+      txt.textContent = it.text;
+      txt.title = it.text;
+      const play = document.createElement('div');
+      play.className = 'pick';
+      play.style.cssText = 'cursor:pointer;flex:none;';
+      play.textContent = '▶ 播放';
+      play.onclick = () => {
+        go('chat');
+        showVideo(it.path);
+        figureVideo.onended = () => { figureVideo.onended = null; showStatic(); };
+      };
+      const del = document.createElement('div');
+      del.style.cssText = 'cursor:pointer;flex:none;font-size:12px;color:var(--ink-faint);padding:2px 4px;';
+      del.textContent = '✕';
+      del.onclick = async () => {
+        if (!confirm('删除这条视频？')) return;
+        try {
+          await fetch('/api/avatar/realhuman/speak-cache/' + it.key, { method:'DELETE' });
+          toast('已删除');
+          renderSpeakLib(); renderQuickChips();
+        } catch(e){ toast('删除失败：' + (e.message||e)); }
+      };
+      row.append(txt, play, del);
+      box.appendChild(row);
+    });
+  } catch(e){
+    box.innerHTML = '<div style="font-size:11px;color:var(--ink-faint);">话术库加载失败</div>';
+  }
 }
 
 // ====== toast ======
@@ -678,7 +747,8 @@ async function uploadPhoto(file){
       toast('人脸检测未通过，换一张正面清晰的照片可重试', 4200);
     } else {
       $('avatarState').textContent = '✅ 我的照片已就绪，生成的视频会用这张脸';
-      toast('照片上传成功！');
+      // 男脸配默认女声做对口型会非常违和，上传后主动提醒去换音色
+      toast('照片上传成功！如果是男性形象，记得去「设置 → 音色」换成男声', 4500);
     }
   } catch (e){
     $('avatarState').textContent = '❌ 上传失败：' + (e.message||e);
@@ -899,6 +969,7 @@ function bindSettings(){
     try {
       await fetch('/api/avatar/realhuman/speak-cache', { method: 'DELETE' });
       toast('对口型视频缓存已清除');
+      renderSpeakLib(); renderQuickChips();
     } catch(e){ toast('清除失败：' + (e.message||e)); }
   });
   // 「预生成对口型视频」（在设置里等，对话说到这句秒出）
@@ -924,6 +995,7 @@ function bindSettings(){
       if (r.ok && d.videoUrl){
         bar.style.width = '100%'; ptext.textContent = '✅ 完成！已入话术库，对话说到这句话秒出对口型';
         toast('✅ 已生成并缓存', 3000);
+        renderSpeakLib(); renderQuickChips();
       } else throw new Error(d.videoError || d.error || '生成失败');
     } catch(e){
       ptext.textContent = '❌ ' + (e.message || e); toast('生成失败：' + (e.message||e), 3500);
@@ -972,6 +1044,13 @@ async function init(){
   $('micBtn').onclick = toggleMic;
   $('genFigureBtn').onclick = generateFigure;
   $('resetFigureBtn').onclick = resetFigure;
+  // 形象提示词模板切换（👩/👨）：点击直接替换 textarea 内容
+  $('figureTplChips').addEventListener('click', e => {
+    const chip = e.target.closest('.chip'); if (!chip) return;
+    $('figureTplChips').querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+    chip.classList.add('on');
+    $('figurePrompt').value = chip.dataset.tpl;
+  });
   $('uploadPhotoBtn').onclick = () => $('photoFile').click();
   $('photoFile').onchange = (e) => {
     const f = e.target.files && e.target.files[0];
@@ -991,6 +1070,7 @@ async function init(){
     const r = await fetch('/api/avatar/config');
     const cfg = await r.json();
     if (cfg.figure && (cfg.figure.localImage || cfg.figure.imageUrl)) applyFigure(cfg.figure);
+    renderQuickChips();   // 话术库快捷 chips（聊天页底部，点击秒出视频）
   } catch(_){}
 
   // 开场白
@@ -999,6 +1079,35 @@ async function init(){
 }
 
 function quickSend(t){ if (state.view!=='chat') go('chat'); sendMessage(t); }
+
+// ====== 话术库快捷 chips（聊天页底部）======
+// 把当前形象已预生成视频的话渲染成 🎬 chip：点击不走 LLM，
+// 小忆直接「说」这句——气泡 + 缓存视频秒出，零等待零成本
+async function renderQuickChips(){
+  const row = $('quickRow');
+  if (!row) return;
+  row.querySelectorAll('span.lib').forEach(el => el.remove());
+  try {
+    const r = await fetch('/api/avatar/realhuman/speak-cache');
+    const { items = [] } = await r.json();
+    items.filter(it => it.current).forEach(it => {
+      const sp = document.createElement('span');
+      sp.className = 'lib';
+      sp.textContent = '🎬 ' + it.text;
+      sp.title = '点击秒出：' + it.text;
+      sp.onclick = () => playLibEntry(it);
+      row.appendChild(sp);
+    });
+  } catch(_){ /* 列表加载失败不影响聊天 */ }
+}
+function playLibEntry(it){
+  if (state.busy){ toast('小忆正在忙，稍候再点'); return; }
+  if (state.view !== 'chat') go('chat');
+  addMsg('ai', it.text);
+  setState('speak');
+  showVideo(it.path);
+  figureVideo.onended = () => { figureVideo.onended = null; setState('idle'); showStatic(); };
+}
 
 init();
 </script>

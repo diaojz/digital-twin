@@ -986,6 +986,43 @@ app.delete('/api/avatar/realhuman/speak-cache', (_req, res) => {
   res.json({ ok: true });
 });
 
+// ── 话术库：列出所有已生成的对口型视频 ───────────────────────
+/**
+ * GET /api/avatar/realhuman/speak-cache
+ * 返回 { items: [{ key, text, path, voice, current }] }
+ * current=true 表示属于当前形象（对话说到相同的话会命中秒出）；
+ * false 是换形象前生成的旧视频——仍可手动重播，但不参与命中（脸对不上）。
+ */
+app.get('/api/avatar/realhuman/speak-cache', (_req, res) => {
+  const figVer = (rhFigure && rhFigure.version) || null;
+  const items = Object.entries(speakCache)
+    // 只列本地文件还在的条目（索引里可能有手动删过文件的死条目）
+    .filter(([, v]) => v.path && existsSync(join(__dirname, 'public', v.path.replace(/^\//, ''))))
+    .map(([key, v]) => ({
+      key,
+      text: v.text || '（早期视频，未记录原文）',
+      path: v.path,
+      voice: v.voice || '',
+      current: !!figVer && v.figVer === figVer,
+    }))
+    .sort((a, b) => b.current - a.current);   // 当前形象的排前面
+  res.json({ items });
+});
+
+// ── 话术库：删除单条视频 ─────────────────────────────────────
+app.delete('/api/avatar/realhuman/speak-cache/:key', (req, res) => {
+  const entry = speakCache[req.params.key];
+  if (!entry) return res.status(404).json({ error: '条目不存在' });
+  try {
+    const p = join(__dirname, 'public', entry.path.replace(/^\//, ''));
+    if (existsSync(p)) unlinkSync(p);
+  } catch (_) {}
+  delete speakCache[req.params.key];
+  try { writeFileSync(SPEAK_CACHE_FILE, JSON.stringify(speakCache)); } catch (_) {}
+  console.log('[RealHuman] 已删除话术库单条:', req.params.key);
+  res.json({ ok: true });
+});
+
 // ── 真人形象：生成形象图 + 检测人脸 ─────────────────────────
 /**
  * POST /api/avatar/realhuman/figure
