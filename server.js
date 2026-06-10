@@ -18,12 +18,13 @@
 import express from 'express';
 import http from 'http';
 import https from 'https';
-import { readFileSync, existsSync, unlinkSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, existsSync, unlinkSync, writeFileSync, mkdirSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { StringDecoder } from 'string_decoder';
 import { spawn } from 'child_process';
 import os from 'os';
+import { createHash } from 'crypto';
 import {
   MEMORY_ENABLED,
   initDb,
@@ -198,6 +199,31 @@ async function downloadFigure(imageUrl) {
   if (!existsSync(AVATAR_DIR)) mkdirSync(AVATAR_DIR, { recursive: true });
   writeFileSync(AVATAR_FILE, buf);
   return '/avatars/current.png';
+}
+
+// 对口型视频本地缓存：同样的「文字+音色+语音参数+形象」复用已生成的视频，不重复烧 EMO
+const VIDEO_DIR = join(__dirname, 'public', 'avatars', 'videos');
+const SPEAK_CACHE_FILE = join(__dirname, 'data', 'realhuman-speak-cache.json');
+let speakCache = {};   // { cacheKey: '/avatars/videos/<key>.mp4' }
+try {
+  if (existsSync(SPEAK_CACHE_FILE)) speakCache = JSON.parse(readFileSync(SPEAK_CACHE_FILE, 'utf-8'));
+} catch (e) { console.warn('[RealHuman] 视频缓存索引读取失败（忽略）:', e.message); }
+
+function speakCacheKey(parts) {
+  return createHash('md5').update(JSON.stringify(parts)).digest('hex');
+}
+async function downloadVideo(videoUrl, key) {
+  const resp = await fetch(videoUrl);
+  if (!resp.ok) throw new Error('下载视频失败 HTTP ' + resp.status);
+  const buf = Buffer.from(await resp.arrayBuffer());
+  if (!existsSync(VIDEO_DIR)) mkdirSync(VIDEO_DIR, { recursive: true });
+  writeFileSync(join(VIDEO_DIR, key + '.mp4'), buf);
+  return '/avatars/videos/' + key + '.mp4';
+}
+function clearSpeakCache() {
+  speakCache = {};
+  try { if (existsSync(SPEAK_CACHE_FILE)) unlinkSync(SPEAK_CACHE_FILE); } catch (_) {}
+  try { if (existsSync(VIDEO_DIR)) for (const f of readdirSync(VIDEO_DIR)) unlinkSync(join(VIDEO_DIR, f)); } catch (_) {}
 }
 let rhFigure = null;
 try {
@@ -892,7 +918,8 @@ app.delete('/api/avatar/realhuman/figure', (_req, res) => {
   rhFigure = null;
   try { if (existsSync(FIGURE_CACHE_FILE)) unlinkSync(FIGURE_CACHE_FILE); } catch (_) {}
   try { if (existsSync(AVATAR_FILE)) unlinkSync(AVATAR_FILE); } catch (_) {}
-  console.log('[RealHuman] 形象已重置');
+  clearSpeakCache();   // 换形象 → 旧对口型视频失效，一并清空
+  console.log('[RealHuman] 形象与对口型视频缓存已重置');
   res.json({ ok: true });
 });
 
@@ -984,6 +1011,17 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
   if (typeof volume === 'number') ttsOpts.volume = volume;
   console.log('[RealHuman/speak] 开始，text:', text.slice(0, 30) + '...', 'voice:', usedVoice);
 
+  // 视频缓存命中：同样的「文字+音色+语音参数+形象」→ 直接复用已生成视频，秒回、不烧 EMO
+  const figVer = (rhFigure && rhFigure.version) || 'noimg';
+  const cacheKey = speakCacheKey({ text: text.trim(), voice: usedVoice, rate, pitch, volume, figVer });
+  if (rhFigure && speakCache[cacheKey]) {
+    const localPath = join(__dirname, 'public', speakCache[cacheKey].replace(/^\//, ''));
+    if (existsSync(localPath)) {
+      console.log('[RealHuman/speak] 命中视频缓存:', cacheKey);
+      return res.json({ videoUrl: speakCache[cacheKey], cached: true });
+    }
+  }
+
   // Step 1: TTS → 获取音频 URL（失败则整体失败，无可降级内容）
   let audioUrl;
   try {
@@ -1008,7 +1046,16 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
       ext_bbox: rhFigure.extBbox,
     });
     console.log('[RealHuman/speak] 视频 URL:', videoUrl);
-    res.json({ videoUrl, audioUrl });
+    // 下载视频到本地缓存（持久、不过期）并记入索引，下次同样的话直接复用、不重新生成
+    let outVideo = videoUrl;
+    try {
+      outVideo = await downloadVideo(videoUrl, cacheKey);
+      speakCache[cacheKey] = outVideo;
+      writeFileSync(SPEAK_CACHE_FILE, JSON.stringify(speakCache));
+    } catch (e) {
+      console.warn('[RealHuman/speak] 视频下载缓存失败，回退用临时 URL:', e.message);
+    }
+    res.json({ videoUrl: outVideo, audioUrl });
   } catch (err) {
     console.error('[RealHuman/speak] emoGen 失败（降级播音频）:', err.message);
     res.json({ audioUrl, videoError: err.message });
