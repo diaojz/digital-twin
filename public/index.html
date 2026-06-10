@@ -709,7 +709,13 @@ function applyFigure(fig){
 //   2. 最长边压到 1280px（够用且省流量），但保证压完最短边仍 ≥ 400
 //   3. 统一转成 jpeg（顺带抹平 EXIF 旋转和 heic 等浏览器能解但后端难处理的格式）
 async function uploadPhoto(file){
-  if (state.busy){ toast('小忆正在忙，请稍候再上传'); return; }
+  // busy 拒绝必须给足反馈：点按钮→选照片有时间差，选完时可能恰逢对话回合
+  // 或对口型现场生成中（一句 40-60s）——静默退出会被当成"点了没反应"
+  if (state.busy){
+    toast('⏳ 小忆正在忙（对话或对口型生成中），等这一轮结束再选照片', 4500);
+    $('avatarState').textContent = '⏳ 正在忙（对话/生成中），稍后再上传照片';
+    return;
+  }
 
   let dataUrl;
   try {
@@ -727,7 +733,10 @@ async function uploadPhoto(file){
     cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
     dataUrl = cv.toDataURL('image/jpeg', 0.85);
   } catch (e){
-    toast(e.message || '图片处理失败', 3500); return;
+    // iPhone 相册默认 HEIC 格式，多数浏览器解不了会走到这里——提示写到页面常驻位置
+    toast(e.message || '图片处理失败', 4000);
+    $('avatarState').textContent = '❌ 照片读取失败：若是 iPhone HEIC 格式，请导出为 JPG 再传，或换一张';
+    return;
   }
 
   state.busy = true;
