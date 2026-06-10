@@ -169,7 +169,7 @@ export async function tts(text, { voice = 'longwan_v2', rate = 1.0, pitch = 1.0,
 export async function uploadFile(buffer, filename, model) {
   // Step 1: 获取上传凭证（凭证约 5 分钟过期，每次现取）
   const polUrl = `${DASH_BASE}/api/v1/uploads?action=getPolicy&model=${encodeURIComponent(model)}`;
-  const polResp = await fetch(polUrl, { headers: authHeaders() });
+  const polResp = await fetch(polUrl, { headers: authHeaders(), signal: AbortSignal.timeout(15000) });
   if (!polResp.ok) {
     const body = await polResp.text();
     throw new Error(`uploadFile 获取上传凭证失败 HTTP ${polResp.status}: ${body}`);
@@ -192,7 +192,8 @@ export async function uploadFile(buffer, filename, model) {
   form.append('success_action_status', '200');
   form.append('file', new Blob([buffer]), filename);
 
-  const upResp = await fetch(pol.upload_host, { method: 'POST', body: form });
+  // 海外服务器→北京 OSS 跨境上传可能很慢（实测 200KB 约 10-25s），超时给足但别无限挂
+  const upResp = await fetch(pol.upload_host, { method: 'POST', body: form, signal: AbortSignal.timeout(120000) });
   if (!upResp.ok) {
     const body = await upResp.text();
     throw new Error(`uploadFile OSS 直传失败 HTTP ${upResp.status}: ${body}`);

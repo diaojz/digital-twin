@@ -719,20 +719,25 @@ async function uploadPhoto(file){
     URL.revokeObjectURL(objUrl);
     const w = img.naturalWidth, h = img.naturalHeight;
     if (Math.min(w, h) < 400){ toast('照片太小：最短边需 ≥ 400 像素', 3500); return; }
-    let scale = Math.min(1, 1280 / Math.max(w, h));
+    // 压到 960px/0.85：EMO 检测够用，体积小一半——在线版服务器跨境传 OSS 慢，每 KB 都是等待时间
+    let scale = Math.min(1, 960 / Math.max(w, h));
     scale = Math.max(scale, Math.min(1, 400 / Math.min(w, h)));
     const cv = document.createElement('canvas');
     cv.width = Math.round(w * scale); cv.height = Math.round(h * scale);
     cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-    dataUrl = cv.toDataURL('image/jpeg', 0.92);
+    dataUrl = cv.toDataURL('image/jpeg', 0.85);
   } catch (e){
     toast(e.message || '图片处理失败', 3500); return;
   }
 
   state.busy = true;
   const btn = $('uploadPhotoBtn');
-  btn.disabled = true; btn.textContent = '📷 上传 + 人脸检测中…';
-  $('avatarState').textContent = '正在上传照片 + 人脸检测…';
+  btn.disabled = true;
+  // 在线版跨境上传慢，按钮显示经过秒数——让用户知道在干活，不是卡死
+  const upStart = Date.now();
+  const upTimer = setInterval(() => { btn.textContent = `📷 上传中… 已 ${Math.round((Date.now()-upStart)/1000)} 秒`; }, 1000);
+  btn.textContent = '📷 上传 + 人脸检测中…';
+  $('avatarState').textContent = '正在上传照片 + 人脸检测…（本地几秒；在线版约 20-60 秒，请勿关页面）';
   try {
     const r = await fetch('/api/avatar/realhuman/figure/upload', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -754,6 +759,7 @@ async function uploadPhoto(file){
     $('avatarState').textContent = '❌ 上传失败：' + (e.message||e);
     toast('上传失败：' + (e.message||e), 3500);
   } finally {
+    clearInterval(upTimer);
     state.busy = false;
     btn.disabled = false; btn.textContent = '📷 上传照片（对口型视频用这张脸）';
   }

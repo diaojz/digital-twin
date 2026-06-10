@@ -1142,13 +1142,13 @@ app.post('/api/avatar/realhuman/figure/upload', async (req, res) => {
     writeFileSync(AVATAR_UPLOAD_FILE, buf);
     const localImage = '/avatars/current-upload.jpg';
 
-    // Step 2: 上传到 DashScope 临时存储。文件和模型绑定，detect / gen 各传一份
+    // Step 2: 上传到 DashScope 临时存储。
+    // 官方文档说"文件与上传时指定的模型绑定"，但实测（2026-06）绑定 emo-v1 的文件
+    // emo-detect-v1 也能用——只传一份，海外服务器跨境上传慢，省一半时间。
     console.log('[RealHuman/upload] 上传到 DashScope 临时存储...');
-    const [ossDetectUrl, ossGenUrl] = await Promise.all([
-      uploadFile(buf, 'figure.jpg', 'emo-detect-v1'),
-      uploadFile(buf, 'figure.jpg', 'emo-v1'),
-    ]);
-    console.log('[RealHuman/upload] oss URL（detect）:', ossDetectUrl);
+    const ossGenUrl = await uploadFile(buf, 'figure.jpg', 'emo-v1');
+    const ossDetectUrl = ossGenUrl;
+    console.log('[RealHuman/upload] oss URL:', ossGenUrl);
 
     // Step 3: 人脸检测。和生成链路一样降级不阻塞——检测失败仍可当静态形象用
     let faceBbox = [];
