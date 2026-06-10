@@ -344,6 +344,7 @@ const state = {
   persona: 'gentle',
   personaCustom: '',
   busy: false,
+  asrProvider: 'webspeech',   // 由 /api/health 的 asr.provider 决定（webspeech / whisper）
 };
 
 const PERSONAS = {
@@ -566,16 +567,19 @@ function applyFigure(imageUrl){
   showStatic();
 }
 
-// ====== ASR（浏览器 Web Speech）======
+// ====== ASR（双 provider：webspeech 浏览器原生 / whisper 本地后端）======
 let recog = null, recording = false, asrError = null;
+let mediaRecorder = null, mediaStream = null, audioChunks = [];
+
 function initASR(){
+  // whisper 模式用 MediaRecorder，无需初始化浏览器 SpeechRecognition
+  if (state.asrProvider === 'whisper') return;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR){ $('micBtn').style.opacity = .4; $('micBtn').title = '此浏览器不支持语音输入'; return; }
   recog = new SR();
   recog.lang = 'zh-CN'; recog.interimResults = true; recog.continuous = false;
-  let finalText = '';
   recog.onresult = e => {
-    let interim = ''; finalText = '';
+    let interim = '', finalText = '';
     for (let i=0;i<e.results.length;i++){
       const tr = e.results[i][0].transcript;
       if (e.results[i].isFinal) finalText += tr; else interim += tr;
@@ -606,15 +610,58 @@ function initASR(){
     if (m) toast(m, 4500);
   };
 }
+
 function toggleMic(){
+  if (state.asrProvider === 'whisper') return toggleMicWhisper();
+  // webspeech 模式
   if (!recog){ toast('此浏览器不支持语音输入，请用文字'); return; }
-  if (state.busy) return;
+  if (state.busy && !recording) return;
   if (recording){ recog.stop(); return; }
   try {
     inputEl.value = ''; recording = true; asrError = null;
     $('micBtn').classList.add('rec'); setState('listen');
     recog.start();
   } catch(e){ recording = false; $('micBtn').classList.remove('rec'); }
+}
+
+// ── whisper 模式：点一下开始录音，再点一下结束 → 上传 /api/asr 本地转写 ──
+async function toggleMicWhisper(){
+  if (recording){                                  // 第二次点击：停止录音，触发 onstop 转写
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    return;
+  }
+  if (state.busy) return;                          // 对话进行中不开新录音
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch(e){
+    toast('麦克风权限被拒或无可用设备，请允许麦克风后重试', 4000); return;
+  }
+  audioChunks = [];
+  mediaRecorder = new MediaRecorder(mediaStream);
+  mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) audioChunks.push(e.data); };
+  mediaRecorder.onstop = async () => {
+    mediaStream.getTracks().forEach(t => t.stop());
+    recording = false; $('micBtn').classList.remove('rec');
+    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+    if (!blob.size){ setState('idle'); toast('没录到声音，再说一次'); return; }
+    setState('think'); $('statepill').textContent = '识别中…';   // 本地 whisper 转写中
+    try {
+      const fd = new FormData(); fd.append('audio', blob, 'rec.webm');
+      const r = await fetch('/api/asr', { method: 'POST', body: fd });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || '识别失败');
+      setState('idle');
+      const txt = (data.text || '').trim();
+      if (txt) sendMessage(txt);
+      else toast('没识别到内容，靠近麦克风再说一次', 3500);
+    } catch(e){
+      setState('idle');
+      toast('语音识别失败：' + (e.message || e), 4000);
+    }
+  };
+  mediaRecorder.start();
+  recording = true; $('micBtn').classList.add('rec'); setState('listen');
+  toast('正在录音…再点一次麦克风结束', 1800);
 }
 
 // ====== 设置面板交互 ======
@@ -665,7 +712,14 @@ function savePersona(){
 
 // ====== 初始化 ======
 async function init(){
-  bindSettings(); renderPersonas(); initASR();
+  bindSettings(); renderPersonas();
+  // 先确定 ASR provider：whisper 走本地后端录音上传，webspeech 走浏览器原生
+  try {
+    const h = await (await fetch('/api/health')).json();
+    if (h.asr && h.asr.provider) state.asrProvider = h.asr.provider;
+  } catch(_){}
+  initASR();
+  if (state.asrProvider === 'whisper') $('micBtn').title = '点击开始录音，再点一次结束（本地 Whisper 识别）';
   $('sendBtn').onclick = () => sendMessage(inputEl.value);
   $('micBtn').onclick = toggleMic;
   $('genFigureBtn').onclick = generateFigure;

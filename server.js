@@ -629,9 +629,11 @@ function extractAudioFromMultipart(req, boundary) {
           // 检查是否是 audio 字段
           if (!headerStr.includes('name="audio"')) continue;
 
-          // 数据部分去掉末尾的 \r\n
+          // 数据部分去掉末尾的 \r\n（data 是 Buffer，没有 endsWith，按字节判断）
           let data = part.slice(sepIdx + sep.length);
-          if (data.endsWith('\r\n')) data = data.slice(0, -2);
+          if (data.length >= 2 && data[data.length - 2] === 0x0d && data[data.length - 1] === 0x0a) {
+            data = data.slice(0, -2);
+          }
 
           return resolve(data);
         }
@@ -698,7 +700,7 @@ function callAsrWhisper(audioPath) {
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
         'Content-Length': body.length,
       },
-      timeout: 30000,
+      timeout: 180000,   // 首次会触发 asr_server 下载模型，给足时间（常规识别仅几秒）
     };
 
     const asrReq = transport.request(options, (asrRes) => {
@@ -725,7 +727,7 @@ function callAsrWhisper(audioPath) {
 
     asrReq.on('timeout', () => {
       asrReq.destroy();
-      reject(new Error('ASR 服务响应超时（30s）'));
+      reject(new Error('ASR 服务响应超时（180s）'));
     });
 
     asrReq.write(body);

@@ -35,6 +35,16 @@ import uvicorn
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 
+# ── 模型下载源与代理处理 ──────────────────────────────────────
+# 1) 默认用国内镜像 hf-mirror.com（大陆直连 huggingface.co 下模型常超时）
+# 2) 若系统开着代理（HTTPS_PROXY，如 Clash），下载 HF 模型时绕过它直连镜像
+#    —— 国内代理把请求转发到镜像反而常失败，直连镜像更稳。
+#    （NO_PROXY 只影响本进程的 HF 下载；mlx 推理是本地运算，不联网）
+os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+if os.getenv("HTTPS_PROXY") or os.getenv("https_proxy"):
+    os.environ["NO_PROXY"] = "*"
+    os.environ["no_proxy"] = "*"
+
 # 读取模型配置（与 server.js 中的 ASR_MODEL 对应）
 MODEL_REPO = os.getenv("ASR_MODEL", "mlx-community/whisper-large-v3-turbo")
 PORT = int(os.getenv("ASR_PORT", "8001"))
