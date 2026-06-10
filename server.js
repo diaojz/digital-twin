@@ -360,7 +360,20 @@ if (ACCESS_CODE) {
 // limit 调大：上传自定义照片走 base64 JSON（默认 100kb 装不下一张照片）
 app.use(express.json({ limit: '15mb' }));
 
-// 静态文件（前端 HTML、CSS、JS）
+// Vue 构建产物（优先命中 dist/index.html 和 assets）
+// 存在 dist/ 时优先使用 Vue 版；不存在时自动 fallback 到 public/（旧版 legacy HTML）
+const distDir = join(__dirname, 'dist');
+if (existsSync(distDir)) {
+  app.use(express.static(distDir, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      }
+    },
+  }));
+}
+
+// 静态文件（public/ 继续服务 /avatars 视频缓存，必须保留）
 app.use(express.static(join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
     // HTML 不缓存：前端改动刷新即生效（避免浏览器拿到旧页面，开发/演示友好）
