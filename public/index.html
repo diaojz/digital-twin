@@ -271,6 +271,12 @@
             <div style="font-size:12px;color:#4a3f70;font-weight:600;margin-bottom:6px;">预生成对口型（在这里等，对话就秒出）</div>
             <textarea class="prompt-box" id="lipsyncText" placeholder="输入一句小忆常说的话，比如开场白…" style="min-height:46px;"></textarea>
             <button class="btn ghost" id="lipsyncGenBtn" style="margin-top:8px;">🎬 生成这句的对口型视频</button>
+            <div id="lipsyncProgress" style="display:none;margin-top:8px;">
+              <div style="height:6px;border-radius:3px;background:#e0d6f4;overflow:hidden;">
+                <div id="lipsyncBar" style="height:100%;width:0;background:linear-gradient(90deg,var(--p1),var(--p2));transition:width .4s;"></div>
+              </div>
+              <div id="lipsyncProgText" style="font-size:10.5px;color:var(--ink-faint);margin-top:5px;text-align:center;">生成中…</div>
+            </div>
           </div>
           <div class="row" id="clearVideoRow" style="cursor:pointer;">
             <div class="ri">🗑️</div><div class="rt"><div class="t1">清除视频缓存</div><div class="t2">清掉所有已生成的对口型视频</div></div><div class="pick">清除</div>
@@ -482,16 +488,21 @@ async function sendMessage(text){
   // 2) 语音回复（流畅模式只语音+静态图、秒回；开了对话对口型才现场生成视频）
   const mayGenVideo = state.figureReady && state.lipsyncInChat;
   setState(mayGenVideo ? 'gen' : 'think');     // 流畅模式用 think（无遮罩、秒回）
+  let genTimer = null;
   if (mayGenVideo){
     $('genTitle').textContent = '形象正在对口型…';
-    $('genSub').textContent  = 'EMO 生成视频中 · 约需十几秒到一两分钟';
+    const gt0 = Date.now();
+    $('genSub').textContent = 'EMO 生成视频中…';
+    genTimer = setInterval(() => { $('genSub').textContent = `EMO 生成视频中… 已 ${Math.round((Date.now()-gt0)/1000)} 秒（通常 40-60 秒）`; }, 500);
   }
+  const clearGenTimer = () => { if (genTimer){ clearInterval(genTimer); genTimer = null; } };
   try {
     const r = await fetch('/api/avatar/realhuman/speak', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ text:reply, voice:state.voice, rate:state.rate, pitch:state.pitch, volume:state.volume, lipsync: state.lipsyncInChat }),
     });
     const data = await r.json();
+    clearGenTimer();          // 拿到结果，停止计时
     if (r.ok && data.videoUrl){
       setState('speak'); showVideo(data.videoUrl);
       await waitVideoEnd();
@@ -503,6 +514,7 @@ async function sendMessage(text){
       throw new Error(data.error || '语音合成失败');
     }
   } catch (e){
+    clearGenTimer();
     toast('语音回复失败：' + (e.message||e) + '，已显示文字');
     showStatic();
   }
@@ -826,17 +838,32 @@ function bindSettings(){
     const t = $('lipsyncText').value.trim();
     if (!t){ toast('先输入一句话'); return; }
     if (!state.figureReady){ toast('请先在「形象图片」里生成形象'); return; }
-    const btn = $('lipsyncGenBtn'); btn.disabled = true; btn.textContent = '🎬 生成中…约 40 秒，请稍候';
+    const btn = $('lipsyncGenBtn'), prog = $('lipsyncProgress'), bar = $('lipsyncBar'), ptext = $('lipsyncProgText');
+    btn.disabled = true; btn.textContent = '🎬 生成中…';
+    prog.style.display = 'block'; bar.style.width = '0';
+    const startT = Date.now(), EST = 50000;   // EMO 一般 40-60s，按经过时间估算进度（封顶 95%）
+    const timer = setInterval(() => {
+      const el = Date.now() - startT;
+      bar.style.width = Math.min(95, (el / EST) * 100) + '%';
+      ptext.textContent = `生成中… 已 ${Math.round(el / 1000)} 秒（通常 40-60 秒）`;
+    }, 500);
     try {
       const r = await fetch('/api/avatar/realhuman/speak', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ text:t, voice:state.voice, rate:state.rate, pitch:state.pitch, volume:state.volume, lipsync:true }),
       });
       const d = await r.json();
-      if (r.ok && d.videoUrl) toast('✅ 已生成并缓存，对话说这句会秒出对口型', 3500);
-      else throw new Error(d.videoError || d.error || '生成失败');
-    } catch(e){ toast('生成失败：' + (e.message||e), 3500); }
-    finally { btn.disabled = false; btn.textContent = '🎬 生成这句的对口型视频'; }
+      if (r.ok && d.videoUrl){
+        bar.style.width = '100%'; ptext.textContent = '✅ 完成！已缓存，对话说这句秒出对口型';
+        toast('✅ 已生成并缓存', 3000);
+      } else throw new Error(d.videoError || d.error || '生成失败');
+    } catch(e){
+      ptext.textContent = '❌ ' + (e.message || e); toast('生成失败：' + (e.message||e), 3500);
+    } finally {
+      clearInterval(timer);
+      btn.disabled = false; btn.textContent = '🎬 生成这句的对口型视频';
+      setTimeout(() => { prog.style.display = 'none'; bar.style.width = '0'; }, 2500);
+    }
   });
 }
 
