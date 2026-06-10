@@ -184,7 +184,10 @@ digital-twin/
 ├── server.js                         # Express 后端：LLM / TTS / ASR / 记忆 / 真人形象 / 话术库
 ├── memory.js                         # 记忆模块：SQLite + 关键词 / Ollama 向量检索（也供话术库语义命中）
 ├── realhuman/
-│   └── api.js                        # 阿里百炼封装：qwen3-max / CosyVoice / 文生图 / EMO 对口型
+│   ├── api.js                        # 阿里百炼封装：qwen3-max / CosyVoice / ASR / 临时存储上传
+│   └── providers/                    # 对口型视频 provider（三选一）：emo / omnihuman / seedance
+├── scripts/
+│   └── test-video-provider.js        # 视频 provider 自测脚本（「填 key 即测」唯一入口）
 ├── public/
 │   ├── index.html                    # 单页前端：聊天、形象、语音、对口型、设置、记忆面板
 │   └── avatars/                      # 形象图 + 对口型视频本地缓存（gitignore）
@@ -289,7 +292,7 @@ BARGE_IN_ENABLED=true
 | 脑（对话） | `qwen3-max`（流式） |
 | 声（语音） | `cosyvoice-v2`（龙婉 / 龙橙 / 龙华女声） |
 | 脸（形象） | `wanx2.1-t2i-turbo` 文生图，**或上传自己的照片**（DashScope 临时存储换 `oss://` URL） |
-| 脸（对口型） | `emo-detect-v1`(同步) + `emo-v1`(异步)，生成嘴型同步视频 |
+| 脸（对口型） | 默认 `emo-detect-v1`(同步) + `emo-v1`(异步)；**还可切换字节 OmniHuman / Seedance 2.0**，见下方 [三路视频 provider](#三路视频-provider对口型后端三选一可热切换) |
 | 听（语音输入） | 本地 `mlx-whisper`，或云端 `qwen3-asr-flash`（同一个 Key，在线部署用） |
 
 > 开通 Key、装 Whisper 等**前置条件和启动步骤见上方 [路线 B](#路线-b小忆云端真人版需要阿里百炼-key)**，这里讲设计。
@@ -304,6 +307,89 @@ BARGE_IN_ENABLED=true
 
 > ⚠️ **EMO 接口坑**：`emo-detect-v1` 是**同步**接口（不要加 `X-DashScope-Async`，否则报 403「不支持异步调用」，容易被误判为账号未开通）；`emo-v1` 是异步，视频 URL 在 `output.results.video_url`。
 > 历史参考（"真人形象本地不可行"）见 [`docs/真人形象-云端部署指南.md`](docs/真人形象-云端部署指南.md)；本实现走的是「云端按需生成 + 本地缓存 + 话术库命中」路线。
+
+## 三路视频 provider（对口型后端三选一，可热切换）
+
+对口型「说话视频」的生成后端支持三路，`.env` 的 `VIDEO_PROVIDER` 选一路即可。三路只换「视频怎么生成」这一层——对话、语音、形象、话术库的玩法完全不变。
+
+| id | 显示名 | 一句话定位 |
+|---|---|---|
+| `emo`（默认） | 阿里 EMO | 和对话/语音共用同一个百炼 Key，月免费 1800 秒，**学员起步选这个** |
+| `omnihuman` | 字节 OmniHuman | 即梦「数字人快速模式」，专攻人像对口型，想对比口型自然度时开 |
+| `seedance` | 字节 Seedance 2.0 | 视频生成大模型原生吃音频驱动，人物不只动嘴、还能带镜头感和肢体动作 |
+
+> 纪律：三路**互不兜底**——选中的那路失败不会偷偷换另一路，只会降级成「语音 + 静态形象」继续聊。话术库缓存按 provider 隔离，切到哪路就只秒播哪路生成过的视频。
+
+### emo（默认）
+
+就是路线 B 已经配好的 `DASHSCOPE_API_KEY`，开通步骤见上方 [前置 1](#前置-1创建阿里百炼-api-key必须)，不用做任何额外事情。价格：月免费 1800 秒，超出 1:1 画幅 0.08 元/秒、3:4 画幅 0.16 元/秒。
+
+### omnihuman 开通步骤（火山引擎）
+
+1. 注册 / 登录 [火山引擎](https://console.volcengine.com)，完成**账号实名认证**。
+2. 打开 [即梦AI 能力页](https://console.volcengine.com/ai/ability/detail/2)，自助开通 [「数字人快速模式」](https://console.volcengine.com/ai/ability/info/20012)（2025-09 起 API 全面开放，无需额外申请；别误开「克隆数字人」，那是另一个要联系销售的产品）。
+3. 控制台**右上角头像 → 「API访问密钥」**，创建一对 AK/SK。
+4. `.env` 填 `VOLC_ACCESS_KEY_ID` 和 `VOLC_SECRET_ACCESS_KEY`。
+
+> 💰 **价格提醒**：按生成视频时长计费**约 1 元/秒**——演示一条 10 秒视频约 10 元，比 EMO 贵一个量级，先用话术库预生成、别现场即兴烧。输出 480P，并发限额 1（同时只能跑一个任务），生成速度约「音频时长 × 20」（10 秒音频等 3~4 分钟）。
+
+> 🔒 **照片会经过第三方图床**：火山接口只收公网图片 URL、不收 base64，而本项目没有自己的图床，当前实现把形象图（**包括你上传的本人照片**）上传到 tmpfiles.org 公共临时图床换取直链（60 分钟有效，过期自动重传）。也就是说照片会短暂出现在一个第三方公开直链上——介意隐私的话请换成自有 OSS/CDN，只需替换 `realhuman/providers/omnihuman.js` 里的 `uploadToTmpHost` 一个函数。EMO 路线不经过此图床（走阿里官方临时存储）。
+
+### seedance 开通步骤（火山方舟）
+
+1. 同样需要火山引擎账号 + 实名认证（和 OmniHuman 共用账号，但 **key 体系不同**：方舟用 Bearer API Key，不是 AK/SK）。
+2. 打开 [火山方舟控制台](https://console.volcengine.com/ark) → 「开通管理」→ 开通模型 `doubao-seedance-2-0-260128`。
+3. 「API Key 管理」→ 创建 API Key。
+4. `.env` 填 `ARK_API_KEY`；`SEEDANCE_MODEL` 保持默认即可。
+
+> 💰 **价格提醒**：720p 约 1 元/秒；想便宜些把 `SEEDANCE_MODEL` 换成 `doubao-seedance-2-0-fast-260128`（快速版，约 0.8 元/秒）。单条视频 4~15 秒。
+
+### .env 配置
+
+```env
+VIDEO_PROVIDER=emo              # 对口型视频后端: emo | omnihuman | seedance
+
+# —— OmniHuman（火山引擎，AK/SK 签名）——
+VOLC_ACCESS_KEY_ID=
+VOLC_SECRET_ACCESS_KEY=
+
+# —— Seedance 2.0（火山方舟，Bearer key）——
+ARK_API_KEY=
+SEEDANCE_MODEL=doubao-seedance-2-0-260128
+```
+
+### 设置页热切换
+
+- 「设置 → 形象」里有三选一分段控件（阿里 EMO / 字节 OmniHuman / 字节 Seedance 2.0），点一下就切，**不用重启**。
+- 切换是**内存级**的——不会写回 `.env`，重启后回到 `.env` 里 `VIDEO_PROVIDER` 的值。
+- 缺 key 的 provider 也允许选中（控件上有 ⚠️ 提示）：选了之后只能秒播它已缓存的视频，新生成会降级为纯语音。
+- 聊天页的 🎬 快捷 chips 和话术库列表都按 provider 过滤/打徽章，不会播错别路生成的视频。
+
+### 填 key 即测：scripts/test-video-provider.js
+
+这是验证三路 provider 的**唯一入口**——填好 key 先跑它，再去页面上玩：
+
+```bash
+# 零网络自检：列出三路的 key 配置状态 + 缺什么去哪开通
+node scripts/test-video-provider.js
+
+# 只看某一路
+node scripts/test-video-provider.js omnihuman
+
+# 真实链路测试（⚠️ 会真实计费）：形象预处理 → CosyVoice 合成测试音频 →
+# 生成对口型视频 → 落盘 /tmp/ 并打印路径与耗时
+node scripts/test-video-provider.js omnihuman --real
+```
+
+`--real` 的两个前提：`public/avatars/` 下已有形象图（先在页面「设置 → 形象图片」生成或上传一张）；`DASHSCOPE_API_KEY` 已配置（三路的测试音频统一走 CosyVoice，和正式链路一致）。
+
+### 待真实 key 验证的事项（如实声明）
+
+火山两路是按官方文档 + 社区可运行实现对接的，本仓提交时**尚未用真实 key 发过请求**，以下几点跑 `--real` 时留意：
+
+- **OmniHuman**：V4 签名签的是 `host` / `x-content-sha256` / `x-date` 三个头的稳妥组合（社区只签 `x-date` 的最小实现也被服务端接受，本仓取更稳的全集）；若遇 `Invalid Authorization` 报错，属官方签名体系的已知易错点，不一定是 key 错。形象图经境外图床 tmpfiles.org 中转（见上方 🔒 提示），**火山国内机房能否稳定拉取这个境外直链待验证**——拉不动就换成自有 OSS/CDN。音频「建议 <15 秒」之外是否有硬性时长上限、mp3/wav 之外的格式是否支持，官方文档未明列。
+- **Seedance**：真人照片可能触发**人脸内容审核**被拦（官方对真实人脸生成有限制）；是否支持 1080p 各方说法矛盾（本仓按 480p/720p 实现）；「约 1 元/秒」按官方 720p 示例换算，最终以方舟账单为准。
+- 两路的视频 URL 都有时效（OmniHuman 仅 1 小时 / Seedance 24 小时），代码会立即下载缓存到本地话术库，正常使用感知不到。
 
 ## 部署成在线服务（可选）
 

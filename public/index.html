@@ -264,6 +264,14 @@
           <div class="ri">🖼️</div><div class="rt"><div class="t1" id="figureName">当前：小忆（默认美女）</div><div class="t2">写实形象 · 生成后本地缓存</div></div><div class="pick">管理 ›</div>
         </div></div>
 
+        <div class="seg">🎛️ 视频生成后端（对口型三选一）</div>
+        <div class="segbtns" id="videoProviderBtns" style="flex-wrap:wrap;">
+          <div style="font-size:11px;color:var(--ink-faint);padding:4px 2px;">加载中…</div>
+        </div>
+        <div class="card" style="margin-top:8px;padding:9px 14px;">
+          <div style="font-size:11px;color:var(--ink-faint);line-height:1.6;">⚠️ 缺 key 的后端也能选——只能播放它已缓存的视频；要生成新视频，先在 .env 填好对应 key 再重启。</div>
+        </div>
+
         <div class="seg">🎬 对口型视频</div>
         <div class="card">
           <div class="row" id="lipsyncRow" style="cursor:pointer;">
@@ -410,6 +418,8 @@ const state = {
   autoSend: true,             // 语音识别后是否自动发送（设置面板开关，默认开）
   continuousMode: true,       // 持续对话：AI 回完自动开麦（设置面板开关，默认开）
   lipsyncInChat: false,       // 对话时是否现场生成对口型视频（默认关=流畅；开则每句慢~40s）
+  videoProvider: 'emo',       // 当前对口型视频后端 id：emo | omnihuman | seedance（由 GET /provider 同步）
+  videoProviders: [],         // [{id, displayName, ready, missing}]（来自后端 listProviders）
 };
 
 const PERSONAS = {
@@ -436,6 +446,60 @@ function go(view){
   if (view === 'chat') renderQuickChips();     // 回聊天页刷新话术快捷 chips
 }
 
+// ====== 视频 provider（对口型后端三选一：emo / omnihuman / seedance）======
+// 徽章用短名，分段控件用后端下发的 displayName（阿里 EMO / 字节 OmniHuman / 字节 Seedance 2.0）
+const PROVIDER_BADGE = { emo:'EMO', omnihuman:'OmniHuman', seedance:'Seedance' };
+async function loadVideoProvider(){
+  try {
+    const r = await fetch('/api/avatar/realhuman/provider');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);                      // 500 等错误响应即使是合法 JSON 也不能当数据用
+    const data = await r.json();
+    if (!Array.isArray(data.providers) || data.providers.length === 0) { // 形状不对/空列表：走降级提示，别把控件区清成空白
+      throw new Error('响应缺少 providers 列表');
+    }
+    state.videoProvider = data.current || 'emo';
+    state.videoProviders = data.providers;
+    renderVideoProviderBtns();
+  } catch(e){
+    console.error('[VideoProvider] 状态加载失败:', e);                   // 保留原始异常，方便排查（网络错/500/JSON 解析错）
+    const box = $('videoProviderBtns');
+    if (box) box.innerHTML = '<div style="font-size:11px;color:var(--ink-faint);">视频后端状态加载失败（旧后端可忽略）</div>';
+  }
+}
+function renderVideoProviderBtns(){
+  const box = $('videoProviderBtns');
+  if (!box) return;
+  box.innerHTML = '';
+  state.videoProviders.forEach(p => {
+    const sb = document.createElement('div');
+    sb.className = 'sb' + (p.id === state.videoProvider ? ' on' : '');
+    sb.dataset.provider = p.id;
+    const nm = document.createTextNode(p.displayName || p.id);
+    const small = document.createElement('small');
+    small.textContent = p.ready ? '✅ 已配置' : '⚠️ 缺 key';
+    sb.append(nm, small);
+    if (!p.ready) sb.title = '缺：' + ((p.missing || []).join(' / ') || '对应 env key') + '（仍可选，只能播已缓存视频）';
+    box.appendChild(sb);
+  });
+}
+async function switchVideoProvider(id){
+  if (!id || id === state.videoProvider) return;
+  try {
+    const r = await fetch('/api/avatar/realhuman/provider', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ provider: id }),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error(data.error || '切换失败');
+    state.videoProvider = data.current;
+    renderVideoProviderBtns();
+    const p = state.videoProviders.find(x => x.id === data.current);
+    if (data.warning) toast('⚠️ ' + data.warning, 4500);
+    else toast('已切换到 ' + (p ? p.displayName : data.current), 2200);
+    renderSpeakLib(); renderQuickChips();   // provider 变了：徽章高亮和 chips 过滤都要刷新
+  } catch(e){ toast('切换失败：' + (e.message||e), 3500); }
+}
+
 // ====== 话术库列表（已生成的对口型视频，本地持久保存） ======
 async function renderSpeakLib(){
   const box = $('speakLibList');
@@ -451,6 +515,12 @@ async function renderSpeakLib(){
     items.forEach(it => {
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:8px;background:#f4f0fb;border-radius:10px;padding:7px 10px;';
+      // provider 徽章：这条视频是哪个后端生成的（旧条目没存 provider 字段，一律视为 emo）
+      const pid = it.provider || 'emo';
+      const ptag = document.createElement('span');
+      ptag.style.cssText = 'font-size:9.5px;color:#8a7ab0;border:1px solid #d6cdf0;border-radius:6px;padding:1px 5px;flex:none;';
+      ptag.textContent = PROVIDER_BADGE[pid] || pid;
+      row.appendChild(ptag);
       // 旧形象 = 换形象前生成的，脸对不上、对话不再命中，但仍可手动重播
       if (!it.current){
         const tag = document.createElement('span');
@@ -948,6 +1018,11 @@ function bindSettings(){
     $('ratioBtns').querySelectorAll('.sb').forEach(c=>c.classList.remove('on'));
     sb.classList.add('on'); state.ratio = sb.dataset.ratio;
   });
+  // 视频生成后端三选一（高亮由 switchVideoProvider 成功后统一重绘，失败不动）
+  $('videoProviderBtns').addEventListener('click', e => {
+    const sb = e.target.closest('.sb'); if (!sb || !sb.dataset.provider) return;
+    switchVideoProvider(sb.dataset.provider);
+  });
   const bindSlider = (id, key, fmt) => {
     $(id).addEventListener('input', e => {
       state[key] = parseFloat(e.target.value);
@@ -1080,6 +1155,9 @@ async function init(){
 
   setState('idle'); showStatic();
 
+  // 拉取当前视频 provider（三选一控件 + chips 过滤都依赖它，先于话术库渲染）
+  await loadVideoProvider();
+
   // 拉取已缓存的形象
   try {
     const r = await fetch('/api/avatar/config');
@@ -1105,7 +1183,8 @@ async function renderQuickChips(){
   try {
     const r = await fetch('/api/avatar/realhuman/speak-cache');
     const { items = [] } = await r.json();
-    items.filter(it => it.current).forEach(it => {
+    // 双重过滤：当前形象（figVer 一致）+ 当前视频 provider（旧条目无 provider 字段视为 emo）
+    items.filter(it => it.current && (it.provider || 'emo') === state.videoProvider).forEach(it => {
       const sp = document.createElement('span');
       sp.className = 'lib';
       sp.textContent = '🎬 ' + it.text;

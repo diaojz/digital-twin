@@ -39,7 +39,8 @@ import {
   getProfile,
   setProfile,
 } from './memory.js';
-import { tts as dashscopeTts, genFigure, emoDetect, emoGen, uploadFile, asr as dashscopeAsr } from './realhuman/api.js';
+import { tts as dashscopeTts, genFigure, emoDetect, asr as dashscopeAsr } from './realhuman/api.js';
+import { providers as videoProviders, getProvider, listProviders } from './realhuman/providers/index.js';
 
 // ── 读取 .env 文件（如果存在） ──────────────────────────────
 // Node 24 原生支持 --env-file 参数，但为了兼容旧版本，这里手动解析
@@ -163,6 +164,16 @@ console.log(`[Config] BARGE_IN_ENABLED=${config.bargeIn.enabled}`);
 console.log(`[Config] WAKE_WORD_ENABLED=${config.wakeWord.enabled}, WAKE_WORDS=${config.wakeWord.words.join(',')}`);
 console.log(`[Config] AVATAR_PROVIDER=${config.avatar.provider}, REALHUMAN_SERVICE_URL=${config.avatar.realHumanServiceUrl || '(未配置)'}`);
 
+// ── 视频 provider（对口型视频生成后端）运行时状态 ─────────────
+// emo = 阿里 EMO（默认）| omnihuman = 字节 OmniHuman | seedance = 字节 Seedance 2.0
+// 支持设置页热切换（POST /api/avatar/realhuman/provider）：内存切换，不写 .env。
+let videoProvider = process.env.VIDEO_PROVIDER || 'emo';
+if (!videoProviders[videoProvider]) {
+  console.warn(`[Config] VIDEO_PROVIDER=${videoProvider} 不是合法值（emo/omnihuman/seedance），已回退 emo`);
+  videoProvider = 'emo';
+}
+console.log(`[Config] VIDEO_PROVIDER=${videoProvider}`);
+
 
 // ── 城北的系统提示词 ────────────────────────────────────────
 // 这是"数字分身"的人设核心，教学场景下温暖、鼓励、面向零基础学员
@@ -185,17 +196,20 @@ const BASE_SYSTEM_PROMPT = `你是城北，一个温暖、亲切的数字分身�
 let turnCount = 0;
 
 // 真人形象缓存（阶段 6 realhuman 模式）
-// 结构：{ imageUrl: string, faceBbox: number[], extBbox: number[] }
+// 结构（契约 §3.3）：{ imageUrl, localImage, source, uploadedAt, version, ratio,
+//                     providers: { <id>: { meta, preparedAt } } }
+//   - providers.<id>.meta 是各视频 provider 的私有数据（emo: oss URL + bbox 等），
+//     server 只负责原样持久化、原样传回 generateVideo
+//   - 顶层 imageUrl 保留是为了 /api/avatar/config 响应形状不变（前端展示用）
 // null 表示尚未生成形象
 // 持久化到 data/，避免 node 重启后形象丢失（否则每次重启都要重新生成）
 const FIGURE_CACHE_FILE = join(__dirname, 'data', 'realhuman-figure.json');
 // 形象图本地缓存目录（下载到 public/ 下，前端直接访问，不依赖 24h 临时 URL）
+// ⚠️ 这两个本地文件是「形象的唯一真相」：各 provider 预处理 / 过期重传的 imageBuffer 都从这里读
 const AVATAR_DIR = join(__dirname, 'public', 'avatars');
 const AVATAR_FILE = join(AVATAR_DIR, 'current.png');
 // 用户上传的自定义照片（前端 canvas 统一转成 jpeg 再传上来）
 const AVATAR_UPLOAD_FILE = join(AVATAR_DIR, 'current-upload.jpg');
-// oss:// 临时存储 URL 官方有效期 48h，留 1h 余量提前刷新
-const OSS_URL_TTL_MS = 47 * 60 * 60 * 1000;
 
 // 把生成的形象图下载到本地，返回前端可访问的相对路径
 async function downloadFigure(imageUrl) {
@@ -221,12 +235,14 @@ const SPEAK_MATCH_THRESHOLD = parseFloat(process.env.SPEAK_MATCH_THRESHOLD || '0
 //（如「你好呀小忆」和「小忆陪你慢慢来」高达 0.978，只因都含「小忆」），会误命中、反复播错视频。
 // 默认只用「精确 + 归一化」命中（可靠）；要语义命中设 SPEAK_SEMANTIC=true（建议先换更好的中文 embedding 模型）。
 const SPEAK_SEMANTIC = process.env.SPEAK_SEMANTIC === 'true';
-let speakCache = {};   // { cacheKey: { path, text, voice, figVer, embedding } }
+let speakCache = {};   // { cacheKey: { path, text, voice, figVer, provider, embedding } }
 try {
   if (existsSync(SPEAK_CACHE_FILE)) speakCache = JSON.parse(readFileSync(SPEAK_CACHE_FILE, 'utf-8'));
   // 老格式兼容：早期索引的值是纯路径字符串（没存原文），包成对象，仍可精确命中，只是参与不了语义匹配
   for (const k of Object.keys(speakCache)) {
     if (typeof speakCache[k] === 'string') speakCache[k] = { path: speakCache[k] };
+    // 旧条目无 provider 字段：一律视为 emo（改造前只有 EMO 一路），读入时补上
+    if (!speakCache[k].provider) speakCache[k].provider = 'emo';
   }
 } catch (e) { console.warn('[RealHuman] 视频缓存索引读取失败（忽略）:', e.message); }
 
@@ -240,11 +256,12 @@ function normalizeSpeakText(t) {
 }
 
 /**
- * 在话术库里找和 text 意思相近的一句（仅限当前形象的条目）
+ * 在话术库里找和 text 意思相近的一句（仅限「当前形象 + 当前视频 provider」的条目，
+ * 不同 provider 生成的视频风格/口型不同，互相隔离不混用）
  * 返回 { entry, sim, how } 或 null
  */
-async function findSpeakMatch(text, figVer) {
-  const candidates = Object.values(speakCache).filter(e => e.text && e.figVer === figVer);
+async function findSpeakMatch(text, figVer, provider) {
+  const candidates = Object.values(speakCache).filter(e => e.text && e.figVer === figVer && e.provider === provider);
   if (candidates.length === 0) return null;
 
   // 第 2 层：归一化全等（不需要 embedding，标点/空格差异直接命中）
@@ -283,6 +300,34 @@ let rhFigure = null;
 try {
   if (existsSync(FIGURE_CACHE_FILE)) {
     rhFigure = JSON.parse(readFileSync(FIGURE_CACHE_FILE, 'utf-8'));
+    // 旧格式迁移：改造前顶层直接存 imageUrl/faceBbox/extBbox（全部产自 EMO 时代），
+    // 迁移为 providers.emo.meta 结构（契约 §3.3），迁移完写回磁盘
+    if (rhFigure && !rhFigure.providers && (rhFigure.imageUrl !== undefined || rhFigure.faceBbox !== undefined)) {
+      const old = rhFigure;
+      rhFigure = {
+        imageUrl: old.imageUrl,
+        localImage: old.localImage || null,
+        source: old.source || 'genfigure',
+        uploadedAt: old.uploadedAt || null,
+        version: old.version,
+        ratio: old.ratio || '3:4',
+        providers: {
+          emo: {
+            meta: {
+              imageUrl: old.imageUrl,
+              faceBbox: old.faceBbox || [],
+              extBbox: old.extBbox || [],
+              // 旧格式没存 checkPass：有 bbox 就视为可用（老链路本来也只看 bbox）
+              checkPass: (old.faceBbox || []).length > 0,
+              uploadedAt: old.uploadedAt || old.version || Date.now(),
+            },
+            preparedAt: old.version || Date.now(),
+          },
+        },
+      };
+      try { writeFileSync(FIGURE_CACHE_FILE, JSON.stringify(rhFigure)); } catch (_) {}
+      console.log('[RealHuman] 形象缓存已从旧格式迁移到 providers 结构');
+    }
     console.log('[RealHuman] 已从磁盘恢复形象缓存');
   }
 } catch (e) {
@@ -1007,6 +1052,35 @@ app.get('/api/avatar/config', (_req, res) => {
   });
 });
 
+// ── 视频 provider：查询 / 热切换 ─────────────────────────────
+/**
+ * GET  /api/avatar/realhuman/provider
+ *   → { current, providers: [{ id, displayName, ready, missing }] }
+ *
+ * POST /api/avatar/realhuman/provider  请求体 { provider: "emo"|"omnihuman"|"seedance" }
+ *   内存切换、不写 .env（重启后回到 VIDEO_PROVIDER 配置值）。
+ *   目标 provider 缺 key 也允许切换（仅能播放已缓存视频），响应多带 warning。
+ */
+app.get('/api/avatar/realhuman/provider', (_req, res) => {
+  res.json({ current: videoProvider, providers: listProviders() });
+});
+
+app.post('/api/avatar/realhuman/provider', (req, res) => {
+  const { provider } = req.body || {};
+  if (!provider) {
+    return res.status(400).json({ error: `缺少 provider 参数（可选 ${Object.keys(videoProviders).join(' / ')}）` });
+  }
+  if (!videoProviders[provider]) {
+    return res.status(400).json({ error: `未知 provider: ${provider}（可选 ${Object.keys(videoProviders).join(' / ')}）` });
+  }
+  videoProvider = provider;
+  const { ready, missing } = videoProviders[provider].configStatus();
+  console.log(`[RealHuman] 视频 provider 已切换 → ${provider}（${videoProviders[provider].displayName}）${ready ? '' : '，缺 ' + missing.join('/')}`);
+  const out = { ok: true, current: videoProvider };
+  if (!ready) out.warning = `缺 ${missing.join('/')}，仅能播放已缓存视频`;
+  res.json(out);
+});
+
 // ── 真人形象：重置（清缓存，下次需重新生成）─────────────────
 app.delete('/api/avatar/realhuman/figure', (_req, res) => {
   rhFigure = null;
@@ -1028,9 +1102,10 @@ app.delete('/api/avatar/realhuman/speak-cache', (_req, res) => {
 // ── 话术库：列出所有已生成的对口型视频 ───────────────────────
 /**
  * GET /api/avatar/realhuman/speak-cache
- * 返回 { items: [{ key, text, path, voice, current }] }
+ * 返回 { items: [{ key, text, path, voice, provider, current }] }
  * current=true 表示属于当前形象（对话说到相同的话会命中秒出）；
  * false 是换形象前生成的旧视频——仍可手动重播，但不参与命中（脸对不上）。
+ * provider 标记这条视频出自哪个视频后端（旧条目读入时已补成 emo）。
  */
 app.get('/api/avatar/realhuman/speak-cache', (_req, res) => {
   const figVer = (rhFigure && rhFigure.version) || null;
@@ -1042,6 +1117,7 @@ app.get('/api/avatar/realhuman/speak-cache', (_req, res) => {
       text: v.text || '（早期视频，未记录原文）',
       path: v.path,
       voice: v.voice || '',
+      provider: v.provider || 'emo',
       current: !!figVer && v.figVer === figVer,
     }))
     .sort((a, b) => b.current - a.current);   // 当前形象的排前面
@@ -1090,6 +1166,7 @@ app.post('/api/avatar/realhuman/figure', async (req, res) => {
     let extBbox = [];
     let checkPass = false;
     let detectError = null;
+    let detectRetryable = false;
     try {
       console.log('[RealHuman/figure] 调用 emoDetect...');
       const bbox = await emoDetect(imageUrl, ratio);
@@ -1100,7 +1177,9 @@ app.post('/api/avatar/realhuman/figure', async (req, res) => {
       if (!checkPass) detectError = '人脸检测未通过（check_pass=false），换一张图可重试对口型';
     } catch (e) {
       // 最常见：EMO（悦动人像）服务未开通 → 403。形象图仍可用，只是暂无对口型坐标。
+      // retryable：检测尝试本身异常（非确定性未通过），speak 时会自动重新 prepare（与 provider 路径语义一致）
       detectError = e.message;
+      detectRetryable = true;
       console.warn('[RealHuman/figure] emoDetect 失败（降级为仅静态形象）:', e.message);
     }
 
@@ -1113,8 +1192,25 @@ app.post('/api/avatar/realhuman/figure', async (req, res) => {
     }
     const version = Date.now();
 
-    // Step 4: 缓存（即便无 bbox，也存供舞台静态展示）
-    rhFigure = { imageUrl, localImage, faceBbox, extBbox, version };
+    // Step 4: 缓存（即便无 bbox，也存供舞台静态展示）。
+    // emo 的 provider 数据在 figure 阶段就绪（上面已做 emoDetect）。注意 imageUrl 是 wanx
+    // 公网 URL，官方有效期仅 24h（比 oss 的 48h 更短）——过期刷新由 emo provider 的
+    // generateVideo 按 uploadedAt 自动用本地原图重传处理；omnihuman/seedance 等 speak 时
+    // 懒 prepare，不在这里全量跑。
+    rhFigure = {
+      imageUrl,
+      localImage,
+      source: 'genfigure',
+      uploadedAt: null,
+      version,
+      ratio,
+      providers: {
+        emo: {
+          meta: { imageUrl, faceBbox, extBbox, checkPass, uploadedAt: version, ...(detectError ? { detectError } : {}), ...(detectRetryable ? { retryable: true } : {}) },
+          preparedAt: version,
+        },
+      },
+    };
     // 持久化到磁盘，node 重启后自动恢复
     try {
       writeFileSync(FIGURE_CACHE_FILE, JSON.stringify(rhFigure));
@@ -1136,10 +1232,11 @@ app.post('/api/avatar/realhuman/figure', async (req, res) => {
  *
  * 和「提示词生成」的区别：不调文生图，直接用用户照片。
  * 但 EMO 的 image_url 只认公网 URL（不支持 base64），所以本地照片要先走
- * DashScope 官方「临时存储」换成 oss:// URL（48h 有效，过期 speak 时自动重传）。
+ * DashScope 官方「临时存储」换成 oss:// URL（48h 有效，过期 speak 时自动重传，
+ * 上传 + 人脸检测 + 刷新逻辑都封装在 emo provider 里）。
  *
- * 流程：解码 base64 → 存本地（永久）→ 上传临时存储×2（detect/gen 各一份，
- *       官方要求上传时绑定的模型和后续调用一致）→ 人脸检测 → 缓存 rhFigure
+ * 流程：解码 base64 → 存本地（永久，形象唯一真相源文件）→ emo provider prepareFigure
+ *      （上传临时存储 + 人脸检测）→ 缓存 rhFigure。其余视频 provider 等 speak 时懒 prepare。
  */
 app.post('/api/avatar/realhuman/figure/upload', async (req, res) => {
   const { image, ratio: r } = req.body || {};
@@ -1155,80 +1252,50 @@ app.post('/api/avatar/realhuman/figure/upload', async (req, res) => {
   console.log(`[RealHuman/upload] 收到照片 ${(buf.length / 1024).toFixed(0)}KB，ratio: ${ratio}`);
 
   try {
-    // Step 1: 存到本地永久缓存（前端展示用，也是 48h 后重传的源文件）
+    // Step 1: 存到本地永久缓存（前端展示用，也是各 provider 预处理 / 48h 重传的唯一真相源文件）
     if (!existsSync(AVATAR_DIR)) mkdirSync(AVATAR_DIR, { recursive: true });
     writeFileSync(AVATAR_UPLOAD_FILE, buf);
     const localImage = '/avatars/current-upload.jpg';
 
-    // Step 2: 上传到 DashScope 临时存储。
-    // 官方文档说"文件与上传时指定的模型绑定"，但实测（2026-06）绑定 emo-v1 的文件
-    // emo-detect-v1 也能用——只传一份，海外服务器跨境上传慢，省一半时间。
-    console.log('[RealHuman/upload] 上传到 DashScope 临时存储...');
-    const ossGenUrl = await uploadFile(buf, 'figure.jpg', 'emo-v1');
-    const ossDetectUrl = ossGenUrl;
-    console.log('[RealHuman/upload] oss URL:', ossGenUrl);
+    // Step 2: emo provider 形象预处理（上传 DashScope 临时存储 + 人脸检测）。
+    // 检测失败降级不阻塞（meta.checkPass=false + detectError），上传失败才整体失败。
+    // 其余视频 provider 不在这里全量跑——切到对应 provider 第一次 speak 时懒 prepare。
+    console.log('[RealHuman/upload] 调用 emo provider 做形象预处理...');
+    const { meta } = await getProvider('emo').prepareFigure({ imageBuffer: buf, mime: 'image/jpeg', ratio });
+    console.log('[RealHuman/upload] oss URL:', meta.imageUrl, 'checkPass:', meta.checkPass);
 
-    // Step 3: 人脸检测。和生成链路一样降级不阻塞——检测失败仍可当静态形象用
-    let faceBbox = [];
-    let extBbox = [];
-    let checkPass = false;
-    let detectError = null;
-    try {
-      const bbox = await emoDetect(ossDetectUrl, ratio);
-      console.log('[RealHuman/upload] emoDetect 结果:', JSON.stringify(bbox));
-      faceBbox = bbox.face_bbox || [];
-      extBbox = bbox.ext_bbox || [];
-      checkPass = bbox.check_pass || false;
-      if (!checkPass) detectError = '人脸检测未通过：请换一张单人、正面、五官清晰的照片';
-    } catch (e) {
-      detectError = e.message;
-      console.warn('[RealHuman/upload] emoDetect 失败（降级为仅静态形象）:', e.message);
-    }
-
-    // Step 4: 缓存。imageUrl 存「绑定 emo-v1 的那份」，speak 生成视频时直接用；
-    //         source/uploadedAt 用于：前端区分文案 + 48h 过期自动重传
+    // Step 3: 缓存。顶层 imageUrl 存「绑定 emo-v1 的那份」（/api/avatar/config 响应形状不变）；
+    //         source/uploadedAt 用于：前端区分文案 + 选本地真相源文件
     const version = Date.now();
-    rhFigure = { imageUrl: ossGenUrl, localImage, faceBbox, extBbox, version, source: 'upload', uploadedAt: Date.now() };
+    rhFigure = {
+      imageUrl: meta.imageUrl,
+      localImage,
+      source: 'upload',
+      uploadedAt: meta.uploadedAt,
+      version,
+      ratio,
+      providers: { emo: { meta, preparedAt: version } },
+    };
     try {
       writeFileSync(FIGURE_CACHE_FILE, JSON.stringify(rhFigure));
     } catch (e) {
       console.warn('[RealHuman] 形象缓存写入失败（忽略）:', e.message);
     }
 
-    res.json({ imageUrl: ossGenUrl, localImage, version, faceBbox, extBbox, checkPass, detectError, source: 'upload' });
+    res.json({ imageUrl: meta.imageUrl, localImage, version, faceBbox: meta.faceBbox, extBbox: meta.extBbox, checkPass: meta.checkPass, detectError: meta.detectError || null, source: 'upload' });
   } catch (err) {
     console.error('[RealHuman/upload] 上传照片失败:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-/**
- * 上传形象的 oss:// URL 只有 48h 有效；生成视频前若快过期，
- * 用本地存的原图重新上传一份（绑定 emo-v1），bbox 是像素坐标、图没变所以不用重新检测。
- * @returns {Promise<string>} 当前可用的形象图 URL
- */
-async function freshFigureImageUrl() {
-  if (rhFigure.source === 'upload' && Date.now() - (rhFigure.uploadedAt || 0) > OSS_URL_TTL_MS) {
-    console.log('[RealHuman] 上传形象的 oss URL 已过期，重新上传刷新...');
-    let buf;
-    try {
-      buf = readFileSync(AVATAR_UPLOAD_FILE);
-    } catch (_) {
-      throw new Error('上传的照片原图已丢失，请到「设置 → 形象图片」重新上传照片');
-    }
-    rhFigure.imageUrl = await uploadFile(buf, 'figure.jpg', 'emo-v1');
-    rhFigure.uploadedAt = Date.now();
-    try { writeFileSync(FIGURE_CACHE_FILE, JSON.stringify(rhFigure)); } catch (_) {}
-  }
-  return rhFigure.imageUrl;
-}
-
 // ── 真人形象：文字转说话视频 ─────────────────────────────────
 /**
  * POST /api/avatar/realhuman/speak
  * 请求体：{ text: string, voice?: string }
- * 流程：TTS（CosyVoice）→ emoGen（对口型视频）→ 返回 videoUrl + audioUrl
- * 耗时约 1-3min（两步异步任务轮询）
+ * 流程：TTS（CosyVoice）→ 话术库三层命中 → miss 时当前视频 provider 生成对口型视频
+ *      （懒 prepare + generateVideo）→ 返回 videoUrl + audioUrl
+ * 耗时约 1-3min（异步任务轮询）；oss 48h 过期重传等细节已下沉进各 provider
  */
 app.post('/api/avatar/realhuman/speak', async (req, res) => {
   const { text, voice, rate, pitch, volume, lipsync } = req.body || {};
@@ -1244,11 +1311,17 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
   if (typeof volume === 'number') ttsOpts.volume = volume;
   console.log('[RealHuman/speak] 开始，text:', text.slice(0, 30) + '...', 'voice:', usedVoice);
 
-  // 话术库第 1 层（精确命中）：「文字+音色+语音参数+形象」完全一致 → 秒回、不烧 EMO
+  // 话术库第 1 层（精确命中）：「文字+音色+语音参数+形象+视频provider」完全一致 → 秒回、不烧额度
   const figVer = (rhFigure && rhFigure.version) || 'noimg';
-  const cacheKey = speakCacheKey({ text: text.trim(), voice: usedVoice, rate, pitch, volume, figVer });
-  if (rhFigure && speakCache[cacheKey]) {
-    const entry = speakCache[cacheKey];
+  const cacheKey = speakCacheKey({ text: text.trim(), voice: usedVoice, rate, pitch, volume, figVer, provider: videoProvider });
+  // 旧键兼容：改造前的键没有 provider 字段（全部产自 EMO 时代）——emo 下顺带查一次旧键，
+  // 保证升级后旧话术库视频照常精确命中
+  const legacyKey = videoProvider === 'emo'
+    ? speakCacheKey({ text: text.trim(), voice: usedVoice, rate, pitch, volume, figVer })
+    : null;
+  const hitKey = (speakCache[cacheKey] && cacheKey) || (legacyKey && speakCache[legacyKey] && legacyKey) || null;
+  if (rhFigure && hitKey) {
+    const entry = speakCache[hitKey];
     const localPath = join(__dirname, 'public', entry.path.replace(/^\//, ''));
     if (existsSync(localPath)) {
       // 老格式条目补登记：早期索引只存了路径没存原文。这次既然拿到了原文，
@@ -1263,7 +1336,7 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
           }
         });
       }
-      console.log('[RealHuman/speak] 精确命中视频缓存:', cacheKey);
+      console.log('[RealHuman/speak] 精确命中视频缓存:', hitKey);
       return res.json({ videoUrl: entry.path, cached: true });
     }
   }
@@ -1271,7 +1344,7 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
   // 话术库第 2/3 层（归一化 / 语义命中）：LLM 回复和预生成的某句意思相近 → 直接复用那句的视频。
   // matchedText 返回库里的原句，前端会把字幕同步成它，保证「嘴上说的」和「屏幕显示的」一致。
   if (rhFigure) {
-    const match = await findSpeakMatch(text.trim(), figVer);
+    const match = await findSpeakMatch(text.trim(), figVer, videoProvider);
     if (match) {
       const localPath = join(__dirname, 'public', match.entry.path.replace(/^\//, ''));
       if (existsSync(localPath)) {
@@ -1303,28 +1376,84 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
     return res.json({ audioUrl, videoError: '流畅模式：仅语音（对口型可在设置预生成或开启对话对口型）' });
   }
 
-  // Step 2: emoGen → 对口型视频（失败则降级：仍返回 audioUrl，前端只播音频 + 静态图，不卡死）
+  // Step 2: 当前视频 provider 生成对口型视频
+  //（失败则降级：仍返回 audioUrl，前端只播音频 + 静态图，不卡死；
+  //  绝不跨 provider 静默回退——A 失败不偷偷调 B，契约 §5）
   try {
-    console.log('[RealHuman/speak] 调用 emoGen...');
-    const figureUrl = await freshFigureImageUrl();   // 上传形象超 48h 自动重传刷新
-    const videoUrl = await emoGen(figureUrl, audioUrl, {
-      face_bbox: rhFigure.faceBbox,
-      ext_bbox: rhFigure.extBbox,
-    });
-    console.log('[RealHuman/speak] 视频 URL:', videoUrl);
-    // 下载视频到本地（持久、不过期）并记入话术库：存原文 + 句向量，之后对话说到意思相近的话直接复用
-    let outVideo = videoUrl;
+    const provider = getProvider(videoProvider);
+
+    // key 未配置：不发起生成，直接降级播音频，文案告诉用户缺什么、去哪开通
+    const cs = provider.configStatus();
+    if (!cs.ready) {
+      return res.json({ audioUrl, videoError: `「${provider.displayName} 未配置：缺 ${cs.missing.join('/')}，开通步骤见 README『三路视频 provider』」` });
+    }
+
+    // 形象本地源文件是唯一真相：按来源读 current-upload.jpg / current.png。
+    // 读不到先置 null——只有「懒 prepare」和「oss 过期刷新」才真正需要它，
+    // 老用户（未过期的 oss URL / wanx 公网 URL）即使源文件丢了也照常生成。
+    const srcFile = rhFigure.source === 'upload' ? AVATAR_UPLOAD_FILE : AVATAR_FILE;
+    const mime = rhFigure.source === 'upload' ? 'image/jpeg' : 'image/png';
+    let imageBuffer = null;
+    try { imageBuffer = readFileSync(srcFile); } catch (_) {}
+
+    // 懒 prepare：该 provider 首次使用当前形象（或形象已更换）时做一次形象预处理。
+    // 另一种要重做的情况：上次 prepare 的「检测环节」是瞬态异常（provider 在 meta 里标 retryable=true，
+    // 如服务端可重试错误/轮询超时/网络抖动）——不把瞬态失败固化成永久降级，本次 speak 重新 prepare 自动重试；
+    // 「确定性检查未通过」（如人脸/主体识别真不合格）不带 retryable，仍走下方秒拦截，不重复烧钱。
+    rhFigure.providers = rhFigure.providers || {};
+    let pstate = rhFigure.providers[videoProvider];
+    if (!pstate || !pstate.meta || (pstate.preparedAt || 0) < (rhFigure.version || 0)
+        || (pstate.meta.checkPass === false && pstate.meta.retryable === true)) {
+      if (!imageBuffer) {
+        throw new Error('形象原图已丢失，请到「设置 → 形象图片」重新生成或上传照片');
+      }
+      console.log(`[RealHuman/speak] ${provider.displayName} 首次使用当前形象，先做形象预处理...`);
+      const prep = await provider.prepareFigure({ imageBuffer, mime, ratio: rhFigure.ratio === '1:1' ? '1:1' : '3:4' });
+      pstate = { meta: prep.meta, preparedAt: Date.now() };
+      rhFigure.providers[videoProvider] = pstate;
+      try { writeFileSync(FIGURE_CACHE_FILE, JSON.stringify(rhFigure)); } catch (_) {}
+    }
+
+    // 形象质量检查未通过（契约 §1：meta.checkPass=false + detectError，由调用方决定降级）：
+    // 不发起付费视频生成（EMO/OmniHuman 都按秒计费），直接降级播音频，
+    // 把 prepareFigure 给出的可执行文案带给用户（如「换一张单人正面照」「EMO 未开通 403」）。
+    // seedance 等无质量检查的 provider meta.checkPass 为 undefined，=== false 判断天然跳过。
+    if (pstate.meta && pstate.meta.checkPass === false) {
+      console.warn(`[RealHuman/speak] ${provider.displayName} 形象质量检查未通过（降级播音频）:`, pstate.meta.detectError || '(无 detectError)');
+      return res.json({ audioUrl, videoError: pstate.meta.detectError || `${provider.displayName} 形象质量检查未通过，请到「设置 → 形象图片」更换照片` });
+    }
+
+    console.log(`[RealHuman/speak] 调用 ${provider.displayName} 生成对口型视频...`);
+    const result = await provider.generateVideo({ imageBuffer, mime, meta: pstate.meta, audioUrl, text: text.trim() });
+    // provider 可能原地更新了 meta（如 EMO 的 oss 48h 重传刷新），调用后统一持久化
+    try { writeFileSync(FIGURE_CACHE_FILE, JSON.stringify(rhFigure)); } catch (_) {}
+
+    // 下载/写盘到本地（持久、不过期）并记入话术库：存原文 + 句向量 + provider，
+    // 之后对话说到相同/相近的话直接复用（按 provider+figVer 隔离）
+    let outVideo = result.videoUrl || null;
     try {
-      outVideo = await downloadVideo(videoUrl, cacheKey);
-      const embedding = await getEmbedding(text.trim());   // Ollama 未就绪时为 null，仅失去语义匹配能力
-      speakCache[cacheKey] = { path: outVideo, text: text.trim(), voice: usedVoice, figVer, embedding };
-      writeFileSync(SPEAK_CACHE_FILE, JSON.stringify(speakCache));
+      if (result.videoUrl) {
+        outVideo = await downloadVideo(result.videoUrl, cacheKey);
+      } else if (result.videoBuffer) {
+        if (!existsSync(VIDEO_DIR)) mkdirSync(VIDEO_DIR, { recursive: true });
+        writeFileSync(join(VIDEO_DIR, cacheKey + '.mp4'), result.videoBuffer);
+        outVideo = '/avatars/videos/' + cacheKey + '.mp4';
+      }
+      if (outVideo && outVideo.startsWith('/avatars/')) {
+        const embedding = await getEmbedding(text.trim());   // Ollama 未就绪时为 null，仅失去语义匹配能力
+        speakCache[cacheKey] = { path: outVideo, text: text.trim(), voice: usedVoice, figVer, provider: videoProvider, embedding };
+        writeFileSync(SPEAK_CACHE_FILE, JSON.stringify(speakCache));
+      }
     } catch (e) {
       console.warn('[RealHuman/speak] 视频下载缓存失败，回退用临时 URL:', e.message);
     }
+    if (!outVideo) {
+      throw new Error(`${provider.displayName} 生成结束但未返回视频（videoUrl/videoBuffer 均为空），请检查该 provider 实现或稍后重试`);
+    }
+    console.log('[RealHuman/speak] 视频就绪:', outVideo);
     res.json({ videoUrl: outVideo, audioUrl });
   } catch (err) {
-    console.error('[RealHuman/speak] emoGen 失败（降级播音频）:', err.message);
+    console.error(`[RealHuman/speak] ${videoProvider} 视频生成失败（降级播音频）:`, err.message);
     res.json({ audioUrl, videoError: err.message });
   }
 });
@@ -1364,6 +1493,11 @@ app.get('/api/health', (_req, res) => {
     avatar: {
       provider: config.avatar.provider,
       realHumanConfigured: !!config.avatar.realHumanServiceUrl,
+      // 对口型视频生成后端（emo / omnihuman / seedance）及其配置就绪状态
+      videoProvider: {
+        current: videoProvider,
+        ready: getProvider(videoProvider).configStatus().ready,
+      },
     },
   });
 });

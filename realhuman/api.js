@@ -4,11 +4,12 @@
  * 阿里云 DashScope 能力封装：
  *   - chatStream     qwen3-max 流式对话（SSE）
  *   - tts            cosyvoice-v2 文字转语音
- *   - genFigure      wanx2.1-t2i-turbo 文生图
- *   - emoDetect      emo-detect-v1 人脸检测
- *   - emoGen         emo-v1 对口型视频生成
+ *   - asr            qwen3-asr-flash 语音识别
  *   - uploadFile     本地文件 → DashScope 临时存储（oss:// URL，48h 有效）
  *   - pollTask       内部通用轮询（间隔 3s，最多 60 次）
+ *
+ * EMO 专属函数（genFigure / emoDetect / emoGen 及 oss 解析头逻辑）已下沉到
+ * providers/emo.js，文件末尾 re-export 保持旧 import 不炸。
  *
  * 注意：所有鉴权从 process.env.DASHSCOPE_API_KEY 读取，
  *       该变量由 server.js 启动时解析 .env 注入，此模块无需再读 .env。
@@ -247,145 +248,9 @@ export async function uploadFile(buffer, filename, model) {
   return `oss://${key}`;
 }
 
-/**
- * 图片 URL 若是 oss:// 临时存储链接，调模型时要额外带解析头
- */
-function ossResolveHeaders(imageUrl) {
-  return imageUrl.startsWith('oss://')
-    ? { 'X-DashScope-OssResourceResolve': 'enable' }
-    : {};
-}
-
-// ── 文生图（wanx2.1-t2i-turbo 异步） ─────────────────────────
-
-/**
- * 文生图，返回图片公网 URL（有效期 24h）
- * @param {string} prompt
- * @param {string} [size='720*1280']
- * @returns {Promise<string>} 图片 URL
- */
-export async function genFigure(prompt, size = '720*1280') {
-  const url = `${DASH_BASE}/api/v1/services/aigc/text2image/image-synthesis`;
-
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      ...authHeaders(),
-      'X-DashScope-Async': 'enable',
-    },
-    body: JSON.stringify({
-      model: 'wanx2.1-t2i-turbo',
-      input: { prompt },
-      parameters: { size, n: 1 },
-    }),
-  });
-
-  if (!resp.ok) {
-    const body = await resp.text();
-    throw new Error(`genFigure HTTP ${resp.status}: ${body}`);
-  }
-
-  const data = await resp.json();
-  const taskId = data?.output?.task_id;
-  if (!taskId) {
-    throw new Error(`genFigure 未获得 task_id: ${JSON.stringify(data)}`);
-  }
-
-  const output = await pollTask(taskId);
-  const imageUrl = output?.results?.[0]?.url;
-  if (!imageUrl) {
-    throw new Error(`genFigure 轮询结果无图片 URL: ${JSON.stringify(output)}`);
-  }
-  return imageUrl;
-}
-
-// ── 人脸检测（emo-detect-v1 异步） ───────────────────────────
-
-/**
- * 检测图片中的人脸，返回 bbox 信息
- * @param {string} imageUrl  公网图片 URL
- * @param {string} [ratio='3:4']
- * @returns {Promise<{check_pass:boolean, face_bbox:number[], ext_bbox:number[]}>}
- */
-export async function emoDetect(imageUrl, ratio = '3:4') {
-  // ⚠️ emo-detect-v1 是「同步」接口：直接返回 bbox，不要加 X-DashScope-Async，
-  //    否则报 403 AccessDenied "current user api does not support asynchronous calls"。
-  const url = `${DASH_BASE}/api/v1/services/aigc/image2video/face-detect`;
-
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { ...authHeaders(), ...ossResolveHeaders(imageUrl) },
-    body: JSON.stringify({
-      model: 'emo-detect-v1',
-      input: { image_url: imageUrl },
-      parameters: { ratio },
-    }),
-  });
-
-  if (!resp.ok) {
-    const body = await resp.text();
-    throw new Error(`emoDetect HTTP ${resp.status}: ${body}`);
-  }
-
-  const data = await resp.json();
-  const output = data?.output;
-  if (!output) {
-    throw new Error(`emoDetect 响应格式异常: ${JSON.stringify(data)}`);
-  }
-  return {
-    check_pass: output.check_pass ?? false,
-    face_bbox: output.face_bbox ?? [],
-    ext_bbox: output.ext_bbox ?? [],
-  };
-}
-
-// ── 对口型视频生成（emo-v1 异步） ────────────────────────────
-
-/**
- * 生成对口型视频
- * @param {string} imageUrl  人物图片公网 URL
- * @param {string} audioUrl  音频公网 URL（MP3）
- * @param {{face_bbox:number[], ext_bbox:number[]}} bbox  emoDetect 返回的 bbox
- * @returns {Promise<string>} 视频公网 URL（MP4）
- */
-export async function emoGen(imageUrl, audioUrl, bbox) {
-  const url = `${DASH_BASE}/api/v1/services/aigc/image2video/video-synthesis/`;
-
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      ...authHeaders(),
-      ...ossResolveHeaders(imageUrl),
-      'X-DashScope-Async': 'enable',
-    },
-    body: JSON.stringify({
-      model: 'emo-v1',
-      input: {
-        image_url: imageUrl,
-        audio_url: audioUrl,
-        face_bbox: bbox.face_bbox,
-        ext_bbox: bbox.ext_bbox,
-      },
-      parameters: { style_level: 'normal' },
-    }),
-  });
-
-  if (!resp.ok) {
-    const body = await resp.text();
-    throw new Error(`emoGen HTTP ${resp.status}: ${body}`);
-  }
-
-  const data = await resp.json();
-  const taskId = data?.output?.task_id;
-  if (!taskId) {
-    throw new Error(`emoGen 未获得 task_id: ${JSON.stringify(data)}`);
-  }
-
-  const output = await pollTask(taskId);
-  // 视频 URL 在 output.results.video_url（不是 output.video_url）
-  const videoUrl = output?.results?.video_url;
-  if (!videoUrl) {
-    throw new Error(`emoGen 轮询结果无视频 URL: ${JSON.stringify(output)}`);
-  }
-  return videoUrl;
-}
+// ── EMO 专属函数 re-export ───────────────────────────────────
+// genFigure/emoDetect/emoGen 已下沉到 providers/emo.js（视频 provider 架构），
+// 这里 re-export 保持旧 import（server.js / 脚本）不炸。
+// 注：与 providers/emo.js 构成循环引用，但双方都只在「调用时」用到对方的函数
+//（uploadFile/pollTask 是函数声明、有提升），ESM 活绑定下安全。
+export { genFigure, emoDetect, emoGen } from './providers/emo.js';

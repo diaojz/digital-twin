@@ -146,6 +146,18 @@ Express 轻后端（Key 只在这里）
 
 > 备选保留：EMO 偏「唱演」若表情过夸张，可同 endpoint 切回 `wan2.2-s2v`（仅换 model 名），已解耦。
 
+### 4.5 三路视频 provider 架构（2026-06 扩展）
+
+「图 + 音 → 对口型视频」这一层已抽成可插拔 provider（接口契约见 [providers-CONTRACT.md](providers-CONTRACT.md)），`VIDEO_PROVIDER` 三选一、设置页可热切换（内存级，不写 `.env`）：
+
+| id | 显示名 | 凭证 | 定位 |
+|---|---|---|---|
+| `emo`（默认） | 阿里 EMO | `DASHSCOPE_API_KEY`（复用） | 同 Key 同生态、月免费 1800 秒，教学默认 |
+| `omnihuman` | 字节 OmniHuman | `VOLC_ACCESS_KEY_ID/SECRET`（火山 V4 签名） | 即梦数字人快速模式，约 1 元/秒，口型效果对比项 |
+| `seedance` | 字节 Seedance 2.0 | `ARK_API_KEY`（方舟 Bearer） | 视频大模型原生音频驱动，约 1 元/秒，带运镜/肢体表现 |
+
+架构要点（不改变本 PRD 其余设计）：每个 provider 自包含 `configStatus / prepareFigure / generateVideo` 三个接口（`realhuman/providers/<id>.js`），互不 import、互不兜底——失败仍走既有降级（只播音频 + 静态形象）；话术库缓存按 provider 隔离；形象来源（文生图 / 上传照片）三路共用，本地源文件是唯一真相。「一个 Key 到底」原则对默认路 `emo` 继续成立，火山两路是**可选增配**，不影响学员最小复现路径。自测入口：`scripts/test-video-provider.js`。
+
 ---
 
 ## 5. API 对接规范
