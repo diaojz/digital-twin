@@ -7,7 +7,7 @@
 
 > 🆕 **真人版「小忆」**：本仓另含一套**写实真人数字人**（云端阿里百炼）——会聊天、用龙婉女声回你、**脸还能对口型说话**。一个 API Key 跑通，详见下方 [真人形象「小忆」](#真人形象小忆realhuman-模式--已实现) 章节。
 
-![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-3C873A?style=flat-square&logo=node.js&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.5-3C873A?style=flat-square&logo=node.js&logoColor=white)
 ![Local First](https://img.shields.io/badge/Local--First-Apple%20Silicon-F2A65A?style=flat-square)
 ![Ollama](https://img.shields.io/badge/LLM-Ollama%20%2F%20Gateway-6B5EF6?style=flat-square)
 ![License](https://img.shields.io/badge/Course%20Project-MVP%200--6-111827?style=flat-square)
@@ -40,7 +40,25 @@
 | 5 | 像真人 | 喊「城北」唤醒，说话时可打断 | 前端监听 |
 | 6 | 真人形象 | **已实现**写实真人数字人 + EMO 对口型视频 | 阿里百炼（云端）|
 
-## 快速开始
+## 两条玩法路线（先选一条）
+
+| | 路线 A：城北（本地卡通版） | 路线 B：小忆（云端真人版） |
+|---|---|---|
+| 形象 | Live2D 卡通 | 写实真人照片 + EMO 对口型视频 |
+| 需要花钱/注册吗 | ❌ 全本地，零 Key | ✅ 需要阿里云账号 + 百炼 API Key（新用户有免费额度） |
+| 前置安装 | Ollama | Python 3.12 + uv（Whisper 语音输入）、可选 Ollama |
+| 适合 | 先跑通、理解架构 | 想要「真人脸说话」的完整体验 |
+
+> 两条路线共用同一份代码，靠 `.env` 切换。建议先跑通路线 A 熟悉流程，再升级路线 B。
+
+## 路线 A：城北本地卡通版（零 Key 开箱即用）
+
+### 0. 前置条件
+
+- **macOS + Apple Silicon Mac**（M1/M2/M3/M4）
+- **Node.js ≥ 22.5**（记忆功能用了 Node 内置 SQLite，老版本起不来；`node -v` 检查，不够就去 [nodejs.org](https://nodejs.org) 装 LTS）
+- **Chrome 或 Edge** 浏览器（语音识别更稳定）
+- **Ollama**（本地大模型运行器）：[ollama.com](https://ollama.com) 下载安装
 
 ### 1. 安装依赖
 
@@ -54,11 +72,11 @@ npm install
 cp .env.example .env
 ```
 
-默认使用本地 Ollama：
+默认使用本地 Ollama，先把模型拉下来（约 4.7GB，嫌大可先用 `qwen2.5:0.5b` 验证）：
 
 ```bash
 ollama pull qwen2.5:7b
-ollama serve
+ollama serve          # ⚠️ 关掉系统代理/VPN，否则 localhost:11434 会通信失败
 ```
 
 `.env` 保持：
@@ -66,15 +84,6 @@ ollama serve
 ```env
 LLM_PROVIDER=ollama
 OLLAMA_MODEL=qwen2.5:7b
-```
-
-如果暂时不想装 Ollama，也可以切到中转网关：
-
-```env
-LLM_PROVIDER=gateway
-GATEWAY_BASE=https://gw.diaoye.org/v1
-GATEWAY_KEY=你的_API_Key
-GATEWAY_MODEL=claude-sonnet-4-5
 ```
 
 ### 3. 启动项目
@@ -89,13 +98,81 @@ npm start
 http://localhost:3000
 ```
 
+## 路线 B：小忆云端真人版（需要阿里百炼 Key）
+
+真人版的对话 / 语音 / 形象 / 对口型全部走 **阿里云百炼**，一个 API Key 跑通。**先把下面 3 个前置条件全部做完再启动**，否则会出现「页面能开但形象生成报错 / 语音输入没反应」。
+
+### 前置 1：创建阿里百炼 API Key（必须）
+
+1. 注册 / 登录阿里云，开通 [百炼大模型平台](https://bailian.console.aliyun.com)（开通免费，按用量计费）。
+2. 控制台右上角「API-KEY」→ 创建一个新 Key（形如 `sk-xxxx`），**地域选「华北2（北京）」**。
+3. 在「模型广场」确认以下模型可用（新开通账号一般自带免费额度，2026-06 时点）：
+
+| 模型 | 用途 | 免费额度（开通后） | 超出后计费 |
+|---|---|---|---|
+| `qwen3-max` | 对话 | 有赠送 token | 按 token |
+| `cosyvoice-v2` | 语音合成（龙婉女声） | 有赠送额度 | 按字符 |
+| `wanx2.1-t2i-turbo` | 文生图（生成形象） | 有赠送张数 | 按张 |
+| `emo-detect-v1` | 人脸检测 | 200 张 | 0.004 元/张 |
+| `emo-v1` | **对口型视频** | 1800 秒 | 1:1 画幅 0.08 元/秒；3:4 画幅 0.16 元/秒 |
+
+> ⚠️ **EMO（悦动人像）大概率要单独申请开通**：在模型广场搜「悦动人像」，没开通时调用会报 403。没开通也能玩——形象、对话、语音都正常，只是没有对口型视频（系统会自动降级，不会卡死）。
+> 额度和价格会变，以 [官方计费页](https://help.aliyun.com/zh/model-studio/emo-quick-start/) 为准。
+
+### 前置 2：本地 Whisper 语音输入（想用语音对话就必须）
+
+真人版语音输入走**本地 mlx-whisper**（浏览器 Web Speech 在大陆连不上谷歌服务器，不可用）。需要 **Python 3.12**（⚠️ 不能用系统自带的 Python，版本不对装不上 mlx）和 [uv](https://docs.astral.sh/uv/)：
+
+```bash
+# 1. 装 uv（已装可跳过）
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. 建 Python 3.12 虚拟环境并装依赖（uv 会自动下载 Python 3.12）
+uv venv --python 3.12 .venv-asr
+uv pip install --python .venv-asr mlx-whisper fastapi uvicorn python-multipart
+
+# 3. 启动 Whisper 服务（⚠️ 首次启动会自动下载模型，约 1.5GB，耐心等）
+#    脚本内置了 HuggingFace 国内镜像 + 绕过系统代理，大陆网络可直接下
+.venv-asr/bin/python asr_server.py
+```
+
+看到 `Uvicorn running on http://127.0.0.1:8001` 即就绪。**模型只下载一次**，之后秒启动。只想打字聊天的话，这步可跳过（`.env` 里把 `ASR_PROVIDER` 留成 `webspeech` 即可，语音按钮在大陆不可用但不影响打字）。
+
+### 前置 3（可选）：Ollama embedding（话术库语义命中用）
+
+不装也完全能玩（精确命中、归一化命中不依赖它）。想让「意思相近、用词不同的话」也命中缓存视频再装：
+
+```bash
+ollama serve && ollama pull nomic-embed-text
+```
+
+### 配置并启动
+
+`.env` 改成：
+
+```env
+LLM_PROVIDER=dashscope
+AVATAR_PROVIDER=realhuman
+DASHSCOPE_API_KEY=sk-你的key
+ASR_PROVIDER=whisper     # 没做前置 2 就留 webspeech
+PORT=3100
+```
+
+```bash
+.venv-asr/bin/python asr_server.py   # 终端 1：Whisper（做了前置 2 才需要）
+npm start                            # 终端 2：主服务
+# 浏览器开 http://localhost:3100
+```
+
+启动后的体验路径：**设置 → 形象图片**（生成形象或上传自己的照片）→ **设置 → 对口型视频**（预生成常用话术）→ 回聊天页点 **🎬 快捷按钮** 秒出对口型视频。
+
 ## 推荐运行环境
 
 - macOS + Apple Silicon Mac
-- Node.js 18+
+- Node.js ≥ 22.5（内置 SQLite 的最低版本）
 - Chrome / Edge（语音识别更稳定）
-- Ollama（本地 LLM 推荐）
-- Python 3.12（仅 Kokoro TTS / Whisper ASR 可选升级需要）
+- Ollama（路线 A 必需；路线 B 可选）
+- Python 3.12 + uv（路线 B 的 Whisper 语音输入；Kokoro TTS 可选升级同理）
 
 ## 项目结构
 
@@ -211,27 +288,12 @@ BARGE_IN_ENABLED=true
 | 脸（对口型） | `emo-detect-v1`(同步) + `emo-v1`(异步)，生成嘴型同步视频 |
 | 听（语音输入） | 本地 `mlx-whisper`（大陆可用；Web Speech 在大陆连不上谷歌） |
 
-**启用方式**（`.env`）：
-
-```env
-LLM_PROVIDER=dashscope
-AVATAR_PROVIDER=realhuman
-DASHSCOPE_API_KEY=sk-你的key       # 阿里百炼控制台获取，用「华北2(北京)」地域
-ASR_PROVIDER=whisper               # 语音输入走本地 Whisper
-```
-
-```bash
-# 语音输入：起本地 whisper（首次自动下模型，脚本内置 hf 镜像 + 绕代理）
-.venv-asr/bin/python asr_server.py
-# 语义命中（可选）：起 ollama，让"意思相近的话"也命中已生成的对口型视频
-ollama serve && ollama pull nomic-embed-text
-npm start   # 浏览器开 http://localhost:3100
-```
+> 开通 Key、装 Whisper 等**前置条件和启动步骤见上方 [路线 B](#路线-b小忆云端真人版需要阿里百炼-key)**，这里讲设计。
 
 **核心体验设计**：
 
 - **流畅模式（默认）**：对话只播**语音 + 静态写实形象**，秒回不卡。对口型视频云端生成慢（~40s），不在对话现场做。
-- **对口型话术库**：在「设置 → 对口型视频」里**预生成**常用语（开场白等），存进话术库；对话说到**相同的话**（标点/断句不同也算）就秒出口型，字幕自动同步成库里那句，保证「嘴上说的」和「屏幕显示的」一致。还有一层「语义命中」（用词不同但意思相近）**默认关闭**——nomic-embed-text 对含相同名字的中文短句相似度虚高（「你好呀小忆」和「小忆陪你慢慢来」高达 0.978），易误命中播错视频；要启用设 `SPEAK_SEMANTIC=true`（建议先换更好的中文 embedding 模型）。
+- **对口型话术库**：在「设置 → 对口型视频」里**预生成**常用语（开场白等），存进话术库；对话说到**相同的话**（标点/断句不同也算）就秒出口型，字幕自动同步成库里那句，保证「嘴上说的」和「屏幕显示的」一致。生成过的视频在设置里有**可视化列表**（重播 / 单条删除，刷新重启都不丢），聊天页底部还有 **🎬 快捷 chips**——每条已缓存视频一个按钮，点击不走 LLM，小忆直接秒说这句（演示最稳路径）。还有一层「语义命中」（用词不同但意思相近）**默认关闭**——nomic-embed-text 对含相同名字的中文短句相似度虚高（「你好呀小忆」和「小忆陪你慢慢来」高达 0.978），易误命中播错视频；要启用设 `SPEAK_SEMANTIC=true`（建议先换更好的中文 embedding 模型）。
 - **持续对话（免手）**：AI 回完自动开麦，讲完停顿自动发送，一轮接一轮；8 秒没说话自动退出省电。设置可关。
 - **上传自己的照片做形象**：「设置 → 形象图片」里可直接上传照片（单人、正面、五官清晰，最短边 ≥ 400px），之后对口型视频就是照片里的你。EMO 不收 base64，本地照片走官方「临时存储」上传（`getPolicy` → OSS 直传 → `oss://` URL + `X-DashScope-OssResourceResolve: enable` 请求头）；`oss://` 仅 48h 有效，生成视频前快过期会用本地原图**自动重传刷新**。注意：上传时绑定的模型必须和后续调用一致，所以 `emo-detect-v1` / `emo-v1` 各传一份。
 - **本地缓存**：形象图、对口型视频都下载到本地（`public/avatars/`），重启复用、不怕 24h 临时 URL 过期、不重复烧额度；「重置形象」/「清除视频缓存」可在设置里单独管理。
@@ -240,6 +302,18 @@ npm start   # 浏览器开 http://localhost:3100
 > 历史参考（"真人形象本地不可行"）见 [`docs/真人形象-云端部署指南.md`](docs/真人形象-云端部署指南.md)；本实现走的是「云端按需生成 + 本地缓存 + 话术库命中」路线。
 
 ## 常见问题
+
+### 真人版形象生成 / 对口型报 403？
+
+最常见原因是 **EMO（悦动人像）服务没开通**——去百炼模型广场搜「悦动人像」申请开通。注意：`emo-detect-v1` 是同步接口，403 也可能是代码里误加了异步请求头（本仓代码已处理）。没开通 EMO 时形象和语音照常可用，只是没有对口型视频。
+
+### 上传自己的照片后提示「人脸检测未通过」？
+
+EMO 对照片有要求：**单人、正面、五官清晰无遮挡**，最短边 ≥ 400 像素。侧脸、多人合影、脸太小、戴墨镜都会被拒。换一张符合要求的照片即可；被拒的照片仍会作为静态形象展示，只是不能生成对口型视频。
+
+### Whisper 首次启动卡很久？
+
+首次启动 `asr_server.py` 要下载约 1.5GB 模型，大陆网络走脚本内置的 HuggingFace 镜像，一般几分钟。看到 `Uvicorn running on http://127.0.0.1:8001` 才算就绪。只下载一次，之后秒启动。
 
 ### 页面能打开，但发消息没回复？
 
@@ -297,7 +371,7 @@ SPEAK_MATCH_THRESHOLD=0.85
 
 - 一个 AI 产品如何从最小 MVP 逐步长出来
 - 前端、Node 后端、本地模型服务之间如何分工
-- 为什么「真人数字分身」本地不可行，而 Live2D 是更现实的教学路径
+- 为什么「真人数字分身」本地实时不可行（依赖 NVIDIA CUDA），以及两条现实路径：本地 Live2D 卡通 / 云端 EMO 按需生成 + 缓存
 - 如何用零依赖默认方案降低学习门槛，再逐步升级质量
 
 ---
