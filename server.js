@@ -184,7 +184,17 @@ let turnCount = 0;
 // 真人形象缓存（阶段 6 realhuman 模式）
 // 结构：{ imageUrl: string, faceBbox: number[], extBbox: number[] }
 // null 表示尚未生成形象
+// 持久化到 data/，避免 node 重启后形象丢失（否则每次重启都要重新生成）
+const FIGURE_CACHE_FILE = join(__dirname, 'data', 'realhuman-figure.json');
 let rhFigure = null;
+try {
+  if (existsSync(FIGURE_CACHE_FILE)) {
+    rhFigure = JSON.parse(readFileSync(FIGURE_CACHE_FILE, 'utf-8'));
+    console.log('[RealHuman] 已从磁盘恢复形象缓存');
+  }
+} catch (e) {
+  console.warn('[RealHuman] 形象缓存读取失败（忽略）:', e.message);
+}
 
 // ── Express 应用 ─────────────────────────────────────────────
 const app = express();
@@ -901,6 +911,12 @@ app.post('/api/avatar/realhuman/figure', async (req, res) => {
 
     // Step 3: 缓存（即便无 bbox，也存 imageUrl 供舞台静态展示）
     rhFigure = { imageUrl, faceBbox, extBbox };
+    // 持久化到磁盘，node 重启后自动恢复
+    try {
+      writeFileSync(FIGURE_CACHE_FILE, JSON.stringify(rhFigure));
+    } catch (e) {
+      console.warn('[RealHuman] 形象缓存写入失败（忽略）:', e.message);
+    }
 
     res.json({ imageUrl, faceBbox, extBbox, checkPass, detectError });
   } catch (err) {
@@ -917,12 +933,6 @@ app.post('/api/avatar/realhuman/figure', async (req, res) => {
  * 耗时约 1-3min（两步异步任务轮询）
  */
 app.post('/api/avatar/realhuman/speak', async (req, res) => {
-  if (!rhFigure) {
-    return res.status(400).json({
-      error: '请先调用 POST /api/avatar/realhuman/figure 生成形象',
-    });
-  }
-
   const { text, voice, rate, pitch, volume } = req.body || {};
   if (!text || typeof text !== 'string' || !text.trim()) {
     return res.status(400).json({ error: 'text 字段不能为空' });
@@ -945,6 +955,11 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
   } catch (err) {
     console.error('[RealHuman/speak] TTS 失败:', err.message);
     return res.status(500).json({ error: 'TTS 失败: ' + err.message });
+  }
+
+  // 没有形象 → 只返回语音（前端播声音 + 占位/默认形象），语音回复不依赖形象
+  if (!rhFigure) {
+    return res.json({ audioUrl, videoError: '尚未生成形象，仅语音回复' });
   }
 
   // Step 2: emoGen → 对口型视频（失败则降级：仍返回 audioUrl，前端只播音频 + 静态图，不卡死）

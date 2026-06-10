@@ -440,15 +440,10 @@ async function sendMessage(text){
   if (!reply.trim()){ reply = '我在呢，再跟我说说？'; aiDiv.textContent = reply; }
   state.messages.push({ role:'assistant', content:reply });
 
-  // 2) 对口型视频（需先有形象）
-  if (!state.figureReady){
-    addMsg('sys', '💡 还没生成形象，点右上 ⚙️ → 形象，先让小忆有张脸');
-    setState('idle'); showStatic();
-    state.busy = false; setInputEnabled(true);
-    return;
-  }
-
+  // 2) 语音回复（总是合成语音；有形象+EMO 时额外出对口型视频）
   setState('gen');
+  $('genTitle').textContent = state.figureReady ? '形象正在对口型…' : '正在合成语音…';
+  $('genSub').textContent  = state.figureReady ? 'EMO 生成视频中 · 约需十几秒到一两分钟' : 'CosyVoice 龙婉合成中…';
   try {
     const r = await fetch('/api/avatar/realhuman/speak', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -459,15 +454,14 @@ async function sendMessage(text){
       setState('speak'); showVideo(data.videoUrl);
       await waitVideoEnd();
     } else if (data.audioUrl){
-      // 降级：视频失败，只播音频 + 静态图
+      // 只有语音（没形象 / EMO 未开通）：播声音 + 当前形象（静态写实图或占位人形）
       setState('speak'); showStatic();
       await playAudio(data.audioUrl);
-      toast('视频生成未成功，已用语音播放');
     } else {
-      throw new Error(data.error || '生成失败');
+      throw new Error(data.error || '语音合成失败');
     }
   } catch (e){
-    toast('对口型失败：' + (e.message||e) + '，已显示文字');
+    toast('语音回复失败：' + (e.message||e) + '，已显示文字');
     showStatic();
   }
   setState('idle'); showStatic();
@@ -652,8 +646,13 @@ async function toggleMicWhisper(){
       if (!r.ok) throw new Error(data.error || '识别失败');
       setState('idle');
       const txt = (data.text || '').trim();
-      if (txt) sendMessage(txt);
-      else toast('没识别到内容，靠近麦克风再说一次', 3500);
+      if (txt){
+        // 识别结果先填进输入框（whisper 是整段转写、非逐字实时），让用户看到并可改错字后再发
+        inputEl.value = txt; inputEl.focus();
+        toast('识别完成，可改字后点 ➤ 发送', 2600);
+      } else {
+        toast('没识别到内容，靠近麦克风再说一次', 3500);
+      }
     } catch(e){
       setState('idle');
       toast('语音识别失败：' + (e.message || e), 4000);
