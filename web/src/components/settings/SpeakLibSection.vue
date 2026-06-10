@@ -43,7 +43,7 @@
           style="display:flex;align-items:center;gap:8px;background:#f4f0fb;border-radius:10px;padding:7px 10px;"
         >
           <span style="font-size:9.5px;color:#8a7ab0;border:1px solid #d6cdf0;border-radius:6px;padding:1px 5px;flex:none;">
-            {{ PROVIDER_BADGE[it.provider] || it.provider }}
+            {{ PROVIDER_BADGE[it.provider || 'emo'] || (it.provider || 'emo') }}
           </span>
           <span v-if="!it.current" style="font-size:9.5px;color:#b08aa0;border:1px solid #e3c8d6;border-radius:6px;padding:1px 5px;flex:none;">旧形象</span>
           <div style="flex:1;min-width:0;font-size:11.5px;color:#4a3f70;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" :title="it.text">

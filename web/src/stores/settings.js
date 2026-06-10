@@ -1,8 +1,6 @@
 /**
  * settings store —— 音色/语速/人设/开关/videoProvider
- * 沿用旧版 localStorage key 命名（老用户设置无缝继承）
- * 旧版直接存在 state 对象里并没有持久化到 localStorage，
- * 所以这里只持久化明确需要跨刷新的设置项。
+ * 与旧版一致：状态存内存，不做 localStorage 持久化（刷新后回默认值）。
  */
 import { defineStore } from 'pinia';
 import { ref } from 'vue';

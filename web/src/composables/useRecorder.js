@@ -11,6 +11,7 @@ export function useRecorder({ onTranscript, onError, toast }) {
 
   // webspeech 内部引用
   let recog = null;
+  let lastHeard = '';   // webspeech 最后一次识别到的文本（onend 时据此发送）
   let asrError = null;
 
   // whisper / dashscope 内部引用
@@ -40,15 +41,18 @@ export function useRecorder({ onTranscript, onError, toast }) {
         const tr = e.results[i][0].transcript;
         if (e.results[i].isFinal) finalText += tr; else interim += tr;
       }
-      // 实时回调（interim 或 final）
-      onTranscript(finalText || interim, false);
+      // 实时回调（interim 或 final），并缓存最后听到的内容——onend 时靠它发送
+      lastHeard = finalText || interim;
+      onTranscript(lastHeard, false);
     };
 
     recog.onend = () => {
       recording.value = false;
+      const finalTxt = lastHeard.trim();
+      lastHeard = '';
       if (asrError) { asrError = null; return; }
-      // webspeech 在 onend 才能拿 final；此时 inputEl 已由 onresult 填好，直接通知发送
-      onTranscript(null, true); // null 表示"用当前输入框值"，true 表示 isFinal
+      // webspeech 在 onend 才能确定识别结束。旧版语义：说完无条件发送（autoSend 开关只管 whisper 路径）
+      onTranscript(finalTxt, true, 'webspeech');
     };
 
     recog.onerror = e => {
@@ -134,7 +138,7 @@ export function useRecorder({ onTranscript, onError, toast }) {
         if (!r.ok) throw new Error(data.error || '识别失败');
         const txt = (data.text || '').trim();
         if (txt) {
-          onTranscript(txt, true);
+          onTranscript(txt, true, 'whisper');
         } else {
           onError('没识别到内容，靠近麦克风再说一次');
         }

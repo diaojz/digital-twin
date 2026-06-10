@@ -216,13 +216,14 @@ function go(view) {
 // 录音
 // ────────────────────────────────────────────
 const { asrProvider: recorderAsrProvider, recording, initASR, toggleMic, stopRecording: recorderStopRecording } = useRecorder({
-  onTranscript: (text, isFinal) => {
+  onTranscript: (text, isFinal, source) => {
     if (!isFinal) {
       // webspeech 实时填字
       if (chatPanelRef.value) chatPanelRef.value.setInputText(text || '');
       return;
     }
-    if (text && settingsStore.autoSend) {
+    // 旧版语义：webspeech 说完无条件发送；autoSend 开关只作用于 whisper 路径
+    if (text && (source === 'webspeech' || settingsStore.autoSend)) {
       handleSendMessage(text);
     } else if (text) {
       if (chatPanelRef.value) chatPanelRef.value.setInputText(text);
