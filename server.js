@@ -213,6 +213,10 @@ const VIDEO_DIR = join(__dirname, 'public', 'avatars', 'videos');
 const SPEAK_CACHE_FILE = join(__dirname, 'data', 'realhuman-speak-cache.json');
 // 阈值按 nomic-embed-text 中文实测校准：同义句 0.77~1.00，不同义句 0.57~0.72，0.75 刚好分界
 const SPEAK_MATCH_THRESHOLD = parseFloat(process.env.SPEAK_MATCH_THRESHOLD || '0.75');
+// 语义命中默认关：nomic-embed-text 对含相同名字/关键词的中文短句相似度虚高
+//（如「你好呀小忆」和「小忆陪你慢慢来」高达 0.978，只因都含「小忆」），会误命中、反复播错视频。
+// 默认只用「精确 + 归一化」命中（可靠）；要语义命中设 SPEAK_SEMANTIC=true（建议先换更好的中文 embedding 模型）。
+const SPEAK_SEMANTIC = process.env.SPEAK_SEMANTIC === 'true';
 let speakCache = {};   // { cacheKey: { path, text, voice, figVer, embedding } }
 try {
   if (existsSync(SPEAK_CACHE_FILE)) speakCache = JSON.parse(readFileSync(SPEAK_CACHE_FILE, 'utf-8'));
@@ -245,7 +249,9 @@ async function findSpeakMatch(text, figVer) {
     if (normalizeSpeakText(e.text) === norm) return { entry: e, sim: 1, how: '归一化全等' };
   }
 
-  // 第 3 层：语义相似（Ollama embedding 未就绪时静默跳过，不影响正常生成链路）
+  // 第 3 层：语义相似（默认关，见 SPEAK_SEMANTIC 说明：中文短句易被共同名字/词误伤，如「…小忆」恒高分）
+  if (!SPEAK_SEMANTIC) return null;
+  // Ollama embedding 未就绪时静默跳过，不影响正常生成链路
   const queryVec = await getEmbedding(text);
   if (!queryVec) return null;
   let best = null;
