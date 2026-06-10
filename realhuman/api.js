@@ -150,6 +150,51 @@ export async function tts(text, { voice = 'longwan_v2', rate = 1.0, pitch = 1.0,
   return audioUrl;
 }
 
+// ── ASR 语音识别（qwen3-asr-flash 同步） ─────────────────────
+
+/**
+ * 录音转文字：唯一支持同步 HTTP 调用的百炼 ASR 模型。
+ * 实测浏览器 MediaRecorder 的 webm/opus（Chrome）和 mp4/aac（Safari）免转码直通。
+ * 限制：单段 ≤ 5 分钟、≤ 10MB（base64 后）；计费 0.00022 元/秒，送 10 小时（90 天）。
+ *
+ * @param {Buffer} audioBuffer  音频文件内容
+ * @param {string} [mime='audio/webm']  音频 MIME
+ * @returns {Promise<string>} 识别出的文字
+ */
+export async function asr(audioBuffer, mime = 'audio/webm') {
+  const url = `${DASH_BASE}/api/v1/services/aigc/multimodal-generation/generation`;
+
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+    signal: AbortSignal.timeout(60000),
+    body: JSON.stringify({
+      model: 'qwen3-asr-flash',
+      input: {
+        messages: [
+          // system 热词：纠正同音字（否则「小忆」常被识别成「小易/小依」）
+          { role: 'system', content: [{ text: '这是用户对数字人助手「小忆」说的话，人名「小忆」要写作忆。' }] },
+          { role: 'user', content: [{ audio: `data:${mime};base64,${audioBuffer.toString('base64')}` }] },
+        ],
+      },
+      // enable_itn：把"三点半"规整成"3点半"，聊天输入体验更好
+      parameters: { asr_options: { language: 'zh', enable_itn: true } },
+    }),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`ASR HTTP ${resp.status}: ${body}`);
+  }
+
+  const data = await resp.json();
+  const text = data?.output?.choices?.[0]?.message?.content?.[0]?.text;
+  if (text === undefined) {
+    throw new Error(`ASR 响应格式异常: ${JSON.stringify(data).slice(0, 200)}`);
+  }
+  return text;
+}
+
 // ── 本地文件上传（DashScope 临时存储） ───────────────────────
 
 /**

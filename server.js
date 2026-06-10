@@ -39,7 +39,7 @@ import {
   getProfile,
   setProfile,
 } from './memory.js';
-import { tts as dashscopeTts, genFigure, emoDetect, emoGen, uploadFile } from './realhuman/api.js';
+import { tts as dashscopeTts, genFigure, emoDetect, emoGen, uploadFile, asr as dashscopeAsr } from './realhuman/api.js';
 
 // ── 读取 .env 文件（如果存在） ──────────────────────────────
 // Node 24 原生支持 --env-file 参数，但为了兼容旧版本，这里手动解析
@@ -700,7 +700,7 @@ app.post('/api/asr', async (req, res) => {
     return res.json({ provider: 'webspeech', text: null });
   }
 
-  // whisper 模式：接收前端上传的音频文件
+  // whisper / dashscope 模式：接收前端上传的音频文件
   // 手动解析 multipart/form-data，避免引入 multer 等额外依赖
   const contentType = req.headers['content-type'] || '';
   if (!contentType.includes('multipart/form-data')) {
@@ -718,7 +718,13 @@ app.post('/api/asr', async (req, res) => {
       return res.status(400).json({ error: '未收到音频数据' });
     }
 
-    // 把音频数据写入临时文件，再发给 asr_server.py
+    // dashscope 模式：百炼 qwen3-asr-flash 云端识别（在线部署用，无需本地 Python）
+    if (config.asr.provider === 'dashscope') {
+      const text = await dashscopeAsr(audioBuffer, sniffAudioMime(audioBuffer));
+      return res.json({ provider: 'dashscope', text });
+    }
+
+    // whisper 模式：把音频数据写入临时文件，再发给本地 asr_server.py
     const tmpPath = join(os.tmpdir(), `asr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.webm`);
     writeFileSync(tmpPath, audioBuffer);
 
@@ -735,6 +741,18 @@ app.post('/api/asr', async (req, res) => {
     }
   }
 });
+
+/**
+ * 按文件头嗅探浏览器录音的容器格式：
+ * Chrome MediaRecorder 出 webm/opus，Safari 出 mp4/aac，二者百炼都实测直通
+ */
+function sniffAudioMime(buf) {
+  if (buf.length > 4 && buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3) return 'audio/webm';
+  if (buf.length > 12 && buf.slice(4, 8).toString() === 'ftyp') return 'audio/mp4';
+  if (buf.slice(0, 4).toString() === 'RIFF') return 'audio/wav';
+  if (buf.slice(0, 4).toString() === 'OggS') return 'audio/ogg';
+  return 'audio/webm';
+}
 
 /**
  * 从 multipart/form-data 请求中提取 audio 字段的二进制数据

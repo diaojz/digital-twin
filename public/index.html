@@ -406,7 +406,7 @@ const state = {
   persona: 'gentle',
   personaCustom: '',
   busy: false,
-  asrProvider: 'webspeech',   // 由 /api/health 的 asr.provider 决定（webspeech / whisper）
+  asrProvider: 'webspeech',   // 由 /api/health 的 asr.provider 决定（webspeech / whisper / dashscope）
   autoSend: true,             // 语音识别后是否自动发送（设置面板开关，默认开）
   continuousMode: true,       // 持续对话：AI 回完自动开麦（设置面板开关，默认开）
   lipsyncInChat: false,       // 对话时是否现场生成对口型视频（默认关=流畅；开则每句慢~40s）
@@ -603,7 +603,7 @@ async function sendMessage(text){
   setState('idle'); showStatic();
   state.busy = false; setInputEnabled(true);
   // 持续对话：AI 回完自动开麦听下一句（whisper 模式 + 开关开 + 在对话页）
-  if (state.continuousMode && state.asrProvider === 'whisper' && !recording){
+  if (state.continuousMode && state.asrProvider !== 'webspeech' && !recording){
     setTimeout(() => { if (!state.busy && !recording && state.view === 'chat') toggleMicWhisper(); }, 500);
   }
 }
@@ -786,7 +786,7 @@ let vadCtx = null, vadRAF = null;
 
 function initASR(){
   // whisper 模式用 MediaRecorder，无需初始化浏览器 SpeechRecognition
-  if (state.asrProvider === 'whisper') return;
+  if (state.asrProvider !== 'webspeech') return;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR){ $('micBtn').style.opacity = .4; $('micBtn').title = '此浏览器不支持语音输入'; return; }
   recog = new SR();
@@ -825,7 +825,7 @@ function initASR(){
 }
 
 function toggleMic(){
-  if (state.asrProvider === 'whisper') return toggleMicWhisper();
+  if (state.asrProvider !== 'webspeech') return toggleMicWhisper();
   // webspeech 模式
   if (!recog){ toast('此浏览器不支持语音输入，请用文字'); return; }
   if (state.busy && !recording) return;
@@ -1045,7 +1045,7 @@ async function init(){
     if (h.asr && h.asr.provider) state.asrProvider = h.asr.provider;
   } catch(_){}
   initASR();
-  if (state.asrProvider === 'whisper') $('micBtn').title = '点击开始录音，再点一次结束（本地 Whisper 识别）';
+  if (state.asrProvider !== 'webspeech') $('micBtn').title = state.asrProvider === 'whisper' ? '点击开始录音，再点一次结束（本地 Whisper 识别）' : '点击开始录音，再点一次结束（百炼云端识别）';
   $('sendBtn').onclick = () => sendMessage(inputEl.value);
   $('micBtn').onclick = toggleMic;
   $('genFigureBtn').onclick = generateFigure;
