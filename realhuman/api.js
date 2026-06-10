@@ -201,14 +201,13 @@ export async function genFigure(prompt, size = '720*1280') {
  * @returns {Promise<{check_pass:boolean, face_bbox:number[], ext_bbox:number[]}>}
  */
 export async function emoDetect(imageUrl, ratio = '3:4') {
+  // ⚠️ emo-detect-v1 是「同步」接口：直接返回 bbox，不要加 X-DashScope-Async，
+  //    否则报 403 AccessDenied "current user api does not support asynchronous calls"。
   const url = `${DASH_BASE}/api/v1/services/aigc/image2video/face-detect`;
 
   const resp = await fetch(url, {
     method: 'POST',
-    headers: {
-      ...authHeaders(),
-      'X-DashScope-Async': 'enable',
-    },
+    headers: authHeaders(),
     body: JSON.stringify({
       model: 'emo-detect-v1',
       input: { image_url: imageUrl },
@@ -222,16 +221,14 @@ export async function emoDetect(imageUrl, ratio = '3:4') {
   }
 
   const data = await resp.json();
-  const taskId = data?.output?.task_id;
-  if (!taskId) {
-    throw new Error(`emoDetect 未获得 task_id: ${JSON.stringify(data)}`);
+  const output = data?.output;
+  if (!output) {
+    throw new Error(`emoDetect 响应格式异常: ${JSON.stringify(data)}`);
   }
-
-  const output = await pollTask(taskId);
   return {
-    check_pass: output?.check_pass ?? false,
-    face_bbox: output?.face_bbox ?? [],
-    ext_bbox: output?.ext_bbox ?? [],
+    check_pass: output.check_pass ?? false,
+    face_bbox: output.face_bbox ?? [],
+    ext_bbox: output.ext_bbox ?? [],
   };
 }
 
@@ -277,7 +274,8 @@ export async function emoGen(imageUrl, audioUrl, bbox) {
   }
 
   const output = await pollTask(taskId);
-  const videoUrl = output?.video_url;
+  // 视频 URL 在 output.results.video_url（不是 output.video_url）
+  const videoUrl = output?.results?.video_url;
   if (!videoUrl) {
     throw new Error(`emoGen 轮询结果无视频 URL: ${JSON.stringify(output)}`);
   }
