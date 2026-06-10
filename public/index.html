@@ -148,6 +148,12 @@
   .segbtns .sb.on{border-color:var(--p1);color:var(--p1);font-weight:700;background:rgba(139,108,240,.08);}
   .segbtns .sb small{display:block;font-size:9.5px;color:var(--ink-faint);font-weight:400;margin-top:2px;}
 
+  /* 开关 toggle */
+  .toggle{width:44px;height:26px;border-radius:13px;background:#d6cdf0;position:relative;cursor:pointer;flex:none;transition:.2s;}
+  .toggle.on{background:var(--p1);}
+  .toggle::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(80,50,140,.3);}
+  .toggle.on::after{left:21px;}
+
   /* 提示词输入 */
   .prompt-box{width:100%;background:rgba(255,255,255,.6);border:1px solid var(--line);border-radius:14px;padding:11px 13px;
     font-size:12px;color:var(--ink);line-height:1.5;min-height:64px;resize:none;outline:none;font-family:inherit;}
@@ -274,6 +280,13 @@
           <div class="sb on" data-ratio="3:4">3:4 竖屏<small>0.16 元/秒 · 好看</small></div>
         </div>
 
+        <div class="seg">🎙️ 语音输入</div>
+        <div class="card"><div class="row" id="autoSendRow" style="cursor:pointer;">
+          <div class="ri">📤</div>
+          <div class="rt"><div class="t1">说完自动发送</div><div class="t2">录完直接发；关掉则填入输入框，可改字再发</div></div>
+          <div class="toggle on" id="autoSendToggle"></div>
+        </div></div>
+
         <div class="seg">🎚️ 语音微调</div>
         <div class="card">
           <div class="slider"><span class="sl">语速</span><input type="range" id="rate" min="0.5" max="2" step="0.1" value="1"><span class="val" id="rateVal">1.0</span></div>
@@ -345,6 +358,7 @@ const state = {
   personaCustom: '',
   busy: false,
   asrProvider: 'webspeech',   // 由 /api/health 的 asr.provider 决定（webspeech / whisper）
+  autoSend: true,             // 语音识别后是否自动发送（设置面板开关，默认开）
 };
 
 const PERSONAS = {
@@ -647,9 +661,13 @@ async function toggleMicWhisper(){
       setState('idle');
       const txt = (data.text || '').trim();
       if (txt){
-        // 识别结果先填进输入框（whisper 是整段转写、非逐字实时），让用户看到并可改错字后再发
-        inputEl.value = txt; inputEl.focus();
-        toast('识别完成，可改字后点 ➤ 发送', 2600);
+        if (state.autoSend){
+          sendMessage(txt);                            // 开关开：说完直接发出去
+        } else {
+          // 开关关：填进输入框（whisper 整段转写、非逐字实时），可改错字后再发
+          inputEl.value = txt; inputEl.focus();
+          toast('识别完成，可改字后点 ➤ 发送', 2600);
+        }
       } else {
         toast('没识别到内容，靠近麦克风再说一次', 3500);
       }
@@ -684,6 +702,12 @@ function bindSettings(){
   bindSlider('rate','rate', v=>v.toFixed(1));
   bindSlider('pitch','pitch', v=>v.toFixed(1));
   bindSlider('volume','volume', v=>String(v));
+  // 语音「说完自动发送」开关
+  $('autoSendRow').addEventListener('click', () => {
+    state.autoSend = !state.autoSend;
+    $('autoSendToggle').classList.toggle('on', state.autoSend);
+    toast(state.autoSend ? '已开启：说完自动发送' : '已关闭：识别后可改字再发', 2000);
+  });
 }
 
 // ====== 性格 ======
