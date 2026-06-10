@@ -17,3 +17,6 @@ data/
 
 # 前端旧版本地备份（Live2D 城北版快照；旧版本身在 git 历史里可追溯）
 public/index.live2d.bak.html
+
+# 本地缓存的形象图（运行时从 DashScope 下载，不进库）
+public/avatars/

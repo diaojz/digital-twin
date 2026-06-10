@@ -319,8 +319,9 @@
         <div class="seg">提示词生成新形象</div>
         <textarea class="prompt-box" id="figurePrompt">一位温柔治愈的年轻亚洲女性，正面肖像，清晰五官，柔和自然微笑，简洁柔光纯色背景，写实摄影风格，高质量</textarea>
         <button class="btn" id="genFigureBtn">✨ 生成形象（约 30-60 秒）</button>
+        <button class="btn ghost" id="resetFigureBtn">🗑️ 重置形象（清缓存，下次重新生成）</button>
         <div class="card" style="margin-top:10px;padding:11px 14px;">
-          <div style="font-size:11px;color:var(--ink-faint);line-height:1.6;">提示：生成需 30-60 秒，请耐心等待。生成成功后回到对话页即可让小忆开口说话。</div>
+          <div style="font-size:11px;color:var(--ink-faint);line-height:1.6;">提示：形象生成后会下载到本地永久缓存，下次打开直接复用、不重复生成；想换形象点「重置」再生成。</div>
         </div>
       </div>
     </div>
@@ -550,7 +551,7 @@ async function generateFigure(){
     });
     const data = await r.json();
     if (!r.ok || !data.imageUrl) throw new Error(data.error || '生成失败');
-    applyFigure(data.imageUrl);
+    applyFigure(data);
     if (data.detectError){
       // 文生图成功但 EMO 人脸检测失败（最常见：EMO 服务未开通）→ 仅静态形象 + 语音
       $('avatarState').textContent = '✅ 写实形象已就绪；对口型暂不可用（' + data.detectError + '）';
@@ -567,17 +568,34 @@ async function generateFigure(){
     btn.disabled = false; btn.textContent = '✨ 重新生成形象';
   }
 }
-function applyFigure(imageUrl){
+function applyFigure(fig){
+  // fig: {localImage?, imageUrl, version?}。优先本地图（持久、不过期），带 version 破缓存
+  const src = (fig.localImage ? fig.localImage + '?v=' + (fig.version || '') : fig.imageUrl);
   state.figureReady = true;
-  figureImg.src = imageUrl;
-  $('avatarPreview').src = imageUrl;
+  figureImg.src = src;
+  $('avatarPreview').src = src;
   $('figureName').textContent = '当前：小忆（已生成）';
   showStatic();
+}
+async function resetFigure(){
+  if (state.busy){ toast('忙着呢，稍候再重置'); return; }
+  if (!confirm('确定重置当前形象？下次需要重新生成')) return;
+  try {
+    await fetch('/api/avatar/realhuman/figure', { method:'DELETE' });
+    state.figureReady = false;
+    figureImg.src = ''; figureImg.classList.remove('on');
+    $('avatarPreview').src = '';
+    $('avatarState').textContent = '已重置 · 用下方提示词重新生成';
+    $('figureName').textContent = '当前：小忆（默认美女）';
+    showStatic();
+    toast('形象已重置');
+  } catch(e){ toast('重置失败：' + (e.message||e)); }
 }
 
 // ====== ASR（双 provider：webspeech 浏览器原生 / whisper 本地后端）======
 let recog = null, recording = false, asrError = null;
 let mediaRecorder = null, mediaStream = null, audioChunks = [];
+let vadCtx = null, vadRAF = null;
 
 function initASR(){
   // whisper 模式用 MediaRecorder，无需初始化浏览器 SpeechRecognition
@@ -648,6 +666,7 @@ async function toggleMicWhisper(){
   mediaRecorder = new MediaRecorder(mediaStream);
   mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) audioChunks.push(e.data); };
   mediaRecorder.onstop = async () => {
+    stopVAD();
     mediaStream.getTracks().forEach(t => t.stop());
     recording = false; $('micBtn').classList.remove('rec');
     const blob = new Blob(audioChunks, { type: 'audio/webm' });
@@ -678,7 +697,46 @@ async function toggleMicWhisper(){
   };
   mediaRecorder.start();
   recording = true; $('micBtn').classList.add('rec'); setState('listen');
-  toast('正在录音…再点一次麦克风结束', 1800);
+  startVAD(mediaStream);                                   // 讲完停顿自动结束录音
+  toast('开始说话…讲完停一下会自动发送（也可点麦克风手动结束）', 2600);
+}
+
+// ── VAD 静音检测：讲完一段静音就自动停止录音并发送 ──
+function startVAD(stream){
+  try {
+    vadCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = vadCtx.createMediaStreamSource(stream);
+    const analyser = vadCtx.createAnalyser();
+    analyser.fftSize = 512;
+    src.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    let hasSpoken = false, silenceStart = 0;
+    const SILENCE_MS = 1400, THRESHOLD = 14;   // 静音多久算讲完 / 音量阈值（可调）
+    const startedAt = performance.now();
+    const tick = () => {
+      if (!recording){ stopVAD(); return; }
+      analyser.getByteFrequencyData(data);
+      let sum = 0; for (let i = 0; i < data.length; i++) sum += data[i];
+      const avg = sum / data.length;
+      const now = performance.now();
+      if (avg > THRESHOLD){ hasSpoken = true; silenceStart = 0; }
+      else if (hasSpoken){
+        if (!silenceStart) silenceStart = now;
+        else if (now - silenceStart > SILENCE_MS){ autoStopRecording(); return; }  // 讲完停顿→自动结束
+      }
+      if (now - startedAt > 30000){ autoStopRecording(); return; }   // 兜底：最长录 30s
+      vadRAF = requestAnimationFrame(tick);
+    };
+    vadRAF = requestAnimationFrame(tick);
+  } catch(e){ /* VAD 不可用不影响手动点结束 */ }
+}
+function autoStopRecording(){
+  stopVAD();
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+}
+function stopVAD(){
+  if (vadRAF){ cancelAnimationFrame(vadRAF); vadRAF = null; }
+  if (vadCtx){ try { vadCtx.close(); } catch(_){} vadCtx = null; }
 }
 
 // ====== 设置面板交互 ======
@@ -746,6 +804,7 @@ async function init(){
   $('sendBtn').onclick = () => sendMessage(inputEl.value);
   $('micBtn').onclick = toggleMic;
   $('genFigureBtn').onclick = generateFigure;
+  $('resetFigureBtn').onclick = resetFigure;
   inputEl.addEventListener('keydown', e => { if (e.key==='Enter') sendMessage(inputEl.value); });
 
   // 时钟
@@ -758,7 +817,7 @@ async function init(){
   try {
     const r = await fetch('/api/avatar/config');
     const cfg = await r.json();
-    if (cfg.figure && cfg.figure.imageUrl) applyFigure(cfg.figure.imageUrl);
+    if (cfg.figure && (cfg.figure.localImage || cfg.figure.imageUrl)) applyFigure(cfg.figure);
   } catch(_){}
 
   // 开场白

@@ -18,7 +18,7 @@
 import express from 'express';
 import http from 'http';
 import https from 'https';
-import { readFileSync, existsSync, unlinkSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync, unlinkSync, writeFileSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { StringDecoder } from 'string_decoder';
@@ -186,6 +186,19 @@ let turnCount = 0;
 // null 表示尚未生成形象
 // 持久化到 data/，避免 node 重启后形象丢失（否则每次重启都要重新生成）
 const FIGURE_CACHE_FILE = join(__dirname, 'data', 'realhuman-figure.json');
+// 形象图本地缓存目录（下载到 public/ 下，前端直接访问，不依赖 24h 临时 URL）
+const AVATAR_DIR = join(__dirname, 'public', 'avatars');
+const AVATAR_FILE = join(AVATAR_DIR, 'current.png');
+
+// 把生成的形象图下载到本地，返回前端可访问的相对路径
+async function downloadFigure(imageUrl) {
+  const resp = await fetch(imageUrl);
+  if (!resp.ok) throw new Error('下载形象图失败 HTTP ' + resp.status);
+  const buf = Buffer.from(await resp.arrayBuffer());
+  if (!existsSync(AVATAR_DIR)) mkdirSync(AVATAR_DIR, { recursive: true });
+  writeFileSync(AVATAR_FILE, buf);
+  return '/avatars/current.png';
+}
 let rhFigure = null;
 try {
   if (existsSync(FIGURE_CACHE_FILE)) {
@@ -869,9 +882,18 @@ app.get('/api/avatar/config', (_req, res) => {
     realHumanReady: provider === 'realhuman' && !!realHumanServiceUrl,
     // 真人服务地址由后端代理，前端不需要直接连，这里只返回是否已配置
     realHumanConfigured: !!realHumanServiceUrl,
-    // 当前缓存的真人形象（若有）
-    figure: rhFigure ? { imageUrl: rhFigure.imageUrl } : null,
+    // 当前缓存的真人形象（若有）：优先本地图（持久、不过期）
+    figure: rhFigure ? { imageUrl: rhFigure.imageUrl, localImage: rhFigure.localImage, version: rhFigure.version } : null,
   });
+});
+
+// ── 真人形象：重置（清缓存，下次需重新生成）─────────────────
+app.delete('/api/avatar/realhuman/figure', (_req, res) => {
+  rhFigure = null;
+  try { if (existsSync(FIGURE_CACHE_FILE)) unlinkSync(FIGURE_CACHE_FILE); } catch (_) {}
+  try { if (existsSync(AVATAR_FILE)) unlinkSync(AVATAR_FILE); } catch (_) {}
+  console.log('[RealHuman] 形象已重置');
+  res.json({ ok: true });
 });
 
 // ── 真人形象：生成形象图 + 检测人脸 ─────────────────────────
@@ -916,8 +938,17 @@ app.post('/api/avatar/realhuman/figure', async (req, res) => {
       console.warn('[RealHuman/figure] emoDetect 失败（降级为仅静态形象）:', e.message);
     }
 
-    // Step 3: 缓存（即便无 bbox，也存 imageUrl 供舞台静态展示）
-    rhFigure = { imageUrl, faceBbox, extBbox };
+    // Step 3: 下载图片到本地永久缓存（避免 24h 临时 URL 过期，复用不重新生成）
+    let localImage = null;
+    try {
+      localImage = await downloadFigure(imageUrl);
+    } catch (e) {
+      console.warn('[RealHuman] 形象图下载失败，回退用临时 URL:', e.message);
+    }
+    const version = Date.now();
+
+    // Step 4: 缓存（即便无 bbox，也存供舞台静态展示）
+    rhFigure = { imageUrl, localImage, faceBbox, extBbox, version };
     // 持久化到磁盘，node 重启后自动恢复
     try {
       writeFileSync(FIGURE_CACHE_FILE, JSON.stringify(rhFigure));
@@ -925,7 +956,7 @@ app.post('/api/avatar/realhuman/figure', async (req, res) => {
       console.warn('[RealHuman] 形象缓存写入失败（忽略）:', e.message);
     }
 
-    res.json({ imageUrl, faceBbox, extBbox, checkPass, detectError });
+    res.json({ imageUrl, localImage, version, faceBbox, extBbox, checkPass, detectError });
   } catch (err) {
     console.error('[RealHuman/figure] 文生图失败:', err.message);
     res.status(500).json({ error: err.message });
