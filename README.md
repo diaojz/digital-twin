@@ -5,6 +5,8 @@
 一个跑在 **Apple Silicon Mac 纯本地** 的卡通数字分身助手「城北」。  
 能聊天、会说话、能听懂、记得你，还支持唤醒词和语音打断。
 
+> 🆕 **真人版「小忆」**：本仓另含一套**写实真人数字人**（云端阿里百炼）——会聊天、用龙婉女声回你、**脸还能对口型说话**。一个 API Key 跑通，详见下方 [真人形象「小忆」](#真人形象小忆realhuman-模式--已实现) 章节。
+
 ![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-3C873A?style=flat-square&logo=node.js&logoColor=white)
 ![Local First](https://img.shields.io/badge/Local--First-Apple%20Silicon-F2A65A?style=flat-square)
 ![Ollama](https://img.shields.io/badge/LLM-Ollama%20%2F%20Gateway-6B5EF6?style=flat-square)
@@ -36,7 +38,7 @@
 | 3 | 有张脸 | Live2D 卡通形象，口型随音频动 | Live2D |
 | 4 | 记得你 | 长期记忆 + 用户画像 + 记忆管理页 | SQLite |
 | 5 | 像真人 | 喊「城北」唤醒，说话时可打断 | 前端监听 |
-| 6 | 真人形象 | 预留云端真人形象接口和部署指南 | 云端进阶 |
+| 6 | 真人形象 | **已实现**写实真人数字人 + EMO 对口型视频 | 阿里百炼（云端）|
 
 ## 快速开始
 
@@ -99,16 +101,20 @@ http://localhost:3000
 
 ```text
 digital-twin/
-├── server.js                         # Express 后端：LLM / TTS / ASR / 记忆 / 形象配置
-├── memory.js                         # 记忆模块：SQLite + 关键词 / 向量检索
+├── server.js                         # Express 后端：LLM / TTS / ASR / 记忆 / 真人形象 / 话术库
+├── memory.js                         # 记忆模块：SQLite + 关键词 / Ollama 向量检索（也供话术库语义命中）
+├── realhuman/
+│   └── api.js                        # 阿里百炼封装：qwen3-max / CosyVoice / 文生图 / EMO 对口型
 ├── public/
-│   └── index.html                    # 单页前端：聊天、形象、语音、记忆面板
+│   ├── index.html                    # 单页前端：聊天、形象、语音、对口型、设置、记忆面板
+│   └── avatars/                      # 形象图 + 对口型视频本地缓存（gitignore）
 ├── docs/
-│   ├── assets/
-│   │   └── digital-twin-home.png     # README 首页截图
-│   └── 真人形象-云端部署指南.md        # 阶段 6 云端真人形象方案
+│   ├── PRD.md                        # 真人版产品规范
+│   ├── 高保真设计稿.html              # 关怀岛屿紫色风视觉稿
+│   ├── 调研报告-数字人与TTS方案-2026.06.md
+│   └── 真人形象-云端部署指南.md
 ├── tts_server.py                     # Kokoro TTS 可选服务
-├── asr_server.py                     # Whisper ASR 可选服务
+├── asr_server.py                     # Whisper ASR 服务（真人版语音输入；内置 hf 镜像 + 绕代理）
 ├── .env.example                      # 配置模板
 └── README.md
 ```
@@ -193,16 +199,44 @@ WAKE_WORDS=城北
 BARGE_IN_ENABLED=true
 ```
 
-### 真人形象进阶
+### 真人形象「小忆」（realhuman 模式 · 已实现）
 
-Mac 本地实时真人写实形象目前不可行，主流方案依赖 NVIDIA CUDA。项目保留了云端接入位：
+除了本地 Live2D 卡通，本仓还实现了一套**云端写实真人数字人「小忆」**——全部能力接 **阿里百炼**，一个 `DASHSCOPE_API_KEY` 跑通：
+
+| 能力 | 模型 / 接口 |
+|---|---|
+| 脑（对话） | `qwen3-max`（流式） |
+| 声（语音） | `cosyvoice-v2`（龙婉 / 龙橙 / 龙华女声） |
+| 脸（形象） | `wanx2.1-t2i-turbo` 文生图 |
+| 脸（对口型） | `emo-detect-v1`(同步) + `emo-v1`(异步)，生成嘴型同步视频 |
+| 听（语音输入） | 本地 `mlx-whisper`（大陆可用；Web Speech 在大陆连不上谷歌） |
+
+**启用方式**（`.env`）：
 
 ```env
-AVATAR_PROVIDER=live2d
-REALHUMAN_SERVICE_URL=
+LLM_PROVIDER=dashscope
+AVATAR_PROVIDER=realhuman
+DASHSCOPE_API_KEY=sk-你的key       # 阿里百炼控制台获取，用「华北2(北京)」地域
+ASR_PROVIDER=whisper               # 语音输入走本地 Whisper
 ```
 
-完整方案见：[`docs/真人形象-云端部署指南.md`](docs/真人形象-云端部署指南.md)
+```bash
+# 语音输入：起本地 whisper（首次自动下模型，脚本内置 hf 镜像 + 绕代理）
+.venv-asr/bin/python asr_server.py
+# 语义命中（可选）：起 ollama，让"意思相近的话"也命中已生成的对口型视频
+ollama serve && ollama pull nomic-embed-text
+npm start   # 浏览器开 http://localhost:3100
+```
+
+**核心体验设计**：
+
+- **流畅模式（默认）**：对话只播**语音 + 静态写实形象**，秒回不卡。对口型视频云端生成慢（~40s），不在对话现场做。
+- **对口型话术库**：在「设置 → 对口型视频」里**预生成**常用语（开场白等），存进话术库；对话说到时**三层命中**秒出口型——精确命中 / 归一化命中（标点不同）/ **语义命中**（用词不同但意思相近，靠 Ollama embedding 余弦相似度 ≥ 0.85）。命中后字幕自动同步成库里那句，保证「嘴上说的」和「屏幕显示的」一致。
+- **持续对话（免手）**：AI 回完自动开麦，讲完停顿自动发送，一轮接一轮；8 秒没说话自动退出省电。设置可关。
+- **本地缓存**：形象图、对口型视频都下载到本地（`public/avatars/`），重启复用、不怕 24h 临时 URL 过期、不重复烧额度；「重置形象」/「清除视频缓存」可在设置里单独管理。
+
+> ⚠️ **EMO 接口坑**：`emo-detect-v1` 是**同步**接口（不要加 `X-DashScope-Async`，否则报 403「不支持异步调用」，容易被误判为账号未开通）；`emo-v1` 是异步，视频 URL 在 `output.results.video_url`。
+> 历史参考（"真人形象本地不可行"）见 [`docs/真人形象-云端部署指南.md`](docs/真人形象-云端部署指南.md)；本实现走的是「云端按需生成 + 本地缓存 + 话术库命中」路线。
 
 ## 常见问题
 
@@ -233,6 +267,21 @@ Live2D 资源依赖网络和 CDN。形象加载失败不影响文字对话功能
 uv venv --python 3.12 .venv-asr
 uv venv --python 3.12 .venv-tts
 ```
+
+### 真人版对口型视频生成很慢 / 想要秒出？
+
+对口型视频是云端 EMO 渲染，单条 ~40 秒，属正常。对话默认是「流畅模式」（只语音 + 静态形象，秒回）。想要秒出口型：在「设置 → 对口型视频」里**预生成**常用语，对话说到就秒出（三层命中：精确 / 标点不同 / 意思相近）。
+
+### 真人版语义命中（意思相近的话也秒出）不生效？
+
+语义命中靠 Ollama embedding，确保：
+
+```bash
+ollama serve
+ollama pull nomic-embed-text
+```
+
+没跑 Ollama 时会自动降级到「归一化命中」（标点 / 断句不同仍命中），不报错。相似度阈值默认 0.85，可在 `.env` 设 `SPEAK_MATCH_THRESHOLD=0.80` 调松。
 
 ## 教学定位
 
