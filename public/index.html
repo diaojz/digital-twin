@@ -567,7 +567,7 @@ function applyFigure(imageUrl){
 }
 
 // ====== ASR（浏览器 Web Speech）======
-let recog = null, recording = false;
+let recog = null, recording = false, asrError = null;
 function initASR(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR){ $('micBtn').style.opacity = .4; $('micBtn').title = '此浏览器不支持语音输入'; return; }
@@ -585,17 +585,33 @@ function initASR(){
   recog.onend = () => {
     recording = false; $('micBtn').classList.remove('rec');
     if (state.uiState==='listen') setState('idle');
+    if (asrError){ asrError = null; return; }        // 出错过：错误提示已在 onerror 给出，不再发送
     const txt = inputEl.value.trim();
     if (txt) sendMessage(txt);
+    else toast('没识别到内容😣 可能连不上语音服务（Web Speech 依赖谷歌后端，大陆常连不上），试试文字输入', 4200);
   };
-  recog.onerror = () => { recording = false; $('micBtn').classList.remove('rec'); if (state.uiState==='listen') setState('idle'); };
+  recog.onerror = e => {
+    asrError = (e && e.error) || 'unknown';
+    recording = false; $('micBtn').classList.remove('rec');
+    if (state.uiState==='listen') setState('idle');
+    const MSG = {
+      network: '连不上语音识别服务😣 Web Speech 依赖谷歌后端，大陆网络常连不上。建议用文字输入，或改用本地 Whisper。',
+      'not-allowed': '麦克风权限被拒，请点地址栏左侧 🔒 允许麦克风后重试',
+      'service-not-allowed': '系统/浏览器禁用了语音识别，建议用文字输入',
+      'no-speech': '没听到说话声，靠近麦克风再说一次',
+      'audio-capture': '没找到可用麦克风，检查一下设备',
+      aborted: null,
+    };
+    const m = Object.prototype.hasOwnProperty.call(MSG, asrError) ? MSG[asrError] : ('语音识别出错：' + asrError);
+    if (m) toast(m, 4500);
+  };
 }
 function toggleMic(){
   if (!recog){ toast('此浏览器不支持语音输入，请用文字'); return; }
   if (state.busy) return;
   if (recording){ recog.stop(); return; }
   try {
-    inputEl.value = ''; recording = true;
+    inputEl.value = ''; recording = true; asrError = null;
     $('micBtn').classList.add('rec'); setState('listen');
     recog.start();
   } catch(e){ recording = false; $('micBtn').classList.remove('rec'); }
