@@ -139,7 +139,7 @@ uv pip install --python .venv-asr mlx-whisper fastapi uvicorn python-multipart
 .venv-asr/bin/python asr_server.py
 ```
 
-看到 `Uvicorn running on http://127.0.0.1:8001` 即就绪。**模型只下载一次**，之后秒启动。只想打字聊天的话，这步可跳过（`.env` 里把 `ASR_PROVIDER` 留成 `webspeech` 即可，语音按钮在大陆不可用但不影响打字）。
+看到 `Uvicorn running on http://127.0.0.1:8001` 即就绪。**模型只下载一次**，之后秒启动。不想装 Python 的话有两个替代：`ASR_PROVIDER=dashscope`（云端识别，复用同一个 Key，零安装）；或留 `webspeech`（大陆不可用，只影响语音按钮，不影响打字）。
 
 ### 前置 3（可选）：Ollama embedding（话术库语义命中用）
 
@@ -231,22 +231,23 @@ uv pip install --python .venv-tts mlx-audio "misaki[zh]" fastapi uvicorn
 .venv-tts/bin/python tts_server.py
 ```
 
-### ASR 语音识别
-
-默认使用浏览器 Web Speech API：
+### ASR 语音识别（三选一）
 
 ```env
 ASR_ENABLED=true
-ASR_PROVIDER=webspeech
+ASR_PROVIDER=webspeech   # webspeech / whisper / dashscope
 ```
 
-如果想要本地离线识别，可以启动可选 Whisper 服务：
+- `webspeech`：浏览器原生，零依赖（⚠️ 大陆连不上谷歌服务器，不可用）
+- `whisper`：本地 mlx-whisper，离线高质量（仅 Apple Silicon，需起 Python 服务）：
 
-```bash
-uv venv --python 3.12 .venv-asr
-uv pip install --python .venv-asr mlx-whisper fastapi uvicorn python-multipart
-.venv-asr/bin/python asr_server.py
-```
+  ```bash
+  uv venv --python 3.12 .venv-asr
+  uv pip install --python .venv-asr mlx-whisper fastapi uvicorn python-multipart
+  .venv-asr/bin/python asr_server.py
+  ```
+
+- `dashscope`：百炼 `qwen3-asr-flash` 云端识别，复用同一个 `DASHSCOPE_API_KEY`，不用装任何 Python——**部署到云服务器（在线版）或不想折腾本地环境时用这个**。0.00022 元/秒，送 10 小时（90 天）。浏览器录音（Chrome webm / Safari mp4）免转码直传。
 
 ### 长期记忆
 
@@ -289,7 +290,7 @@ BARGE_IN_ENABLED=true
 | 声（语音） | `cosyvoice-v2`（龙婉 / 龙橙 / 龙华女声） |
 | 脸（形象） | `wanx2.1-t2i-turbo` 文生图，**或上传自己的照片**（DashScope 临时存储换 `oss://` URL） |
 | 脸（对口型） | `emo-detect-v1`(同步) + `emo-v1`(异步)，生成嘴型同步视频 |
-| 听（语音输入） | 本地 `mlx-whisper`（大陆可用；Web Speech 在大陆连不上谷歌） |
+| 听（语音输入） | 本地 `mlx-whisper`，或云端 `qwen3-asr-flash`（同一个 Key，在线部署用） |
 
 > 开通 Key、装 Whisper 等**前置条件和启动步骤见上方 [路线 B](#路线-b小忆云端真人版需要阿里百炼-key)**，这里讲设计。
 
@@ -303,6 +304,29 @@ BARGE_IN_ENABLED=true
 
 > ⚠️ **EMO 接口坑**：`emo-detect-v1` 是**同步**接口（不要加 `X-DashScope-Async`，否则报 403「不支持异步调用」，容易被误判为账号未开通）；`emo-v1` 是异步，视频 URL 在 `output.results.video_url`。
 > 历史参考（"真人形象本地不可行"）见 [`docs/真人形象-云端部署指南.md`](docs/真人形象-云端部署指南.md)；本实现走的是「云端按需生成 + 本地缓存 + 话术库命中」路线。
+
+## 部署成在线服务（可选）
+
+项目可以部署到一台 Linux 云服务器，给别人一个链接直接体验（已验证可跑通：Ubuntu + Node 22 + caddy）。和本地版的差异：语音输入用 `ASR_PROVIDER=dashscope`（云服务器没有 mlx-whisper），TTS/形象/对口型本来就是云端的，不受影响。
+
+```bash
+# 1. 服务器上装 Node 22，clone 本仓库，npm install
+# 2. .env 关键配置：
+#    LLM_PROVIDER=dashscope / AVATAR_PROVIDER=realhuman / DASHSCOPE_API_KEY=sk-xxx
+#    ASR_PROVIDER=dashscope
+#    ACCESS_CODE=你的访问口令        ← 公网部署必须设置！
+# 3. systemd 常驻（崩溃自动重启），caddy 反代到 3100 自动拿 https 证书
+```
+
+**`ACCESS_CODE` 访问口令（公网必开）**：服务背后是你的百炼 Key，谁访问谁烧你的额度（EMO 0.16 元/秒）。设置后：
+
+- 不带口令访问 → 401 拦截页，什么都干不了；
+- 用 `https://你的域名/?code=口令` 访问一次 → 种 30 天 cookie，之后直接访问免输；
+- 把**带口令的完整链接**发给学员/朋友即可，别发公开场合；
+- **换口令**（比如发现外传了）：改服务器 `.env` 里的 `ACCESS_CODE`，然后 `sudo systemctl restart digital-twin`——旧口令和所有已种的 cookie 立刻全部失效；
+- 本地使用不设 `ACCESS_CODE` 即可，行为完全不变。
+
+在线版小贴士：上传照片会经历「浏览器 → 服务器 → 阿里云 OSS」两跳，海外服务器跨境上传约 10-30 秒（按钮会显示经过秒数），属正常。
 
 ## 常见问题
 
