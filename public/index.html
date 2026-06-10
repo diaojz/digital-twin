@@ -257,9 +257,14 @@
         <div class="panel-h">调一调你的数字人</div>
         <div class="panel-s">形象 / 声音 / 性格 · 改完下一轮生效</div>
 
-        <div class="seg">🎭 形象</div>
+        <div class="seg">🖼️ 形象图片</div>
         <div class="card"><div class="row" onclick="go('avatar')">
-          <div class="ri">🖼️</div><div class="rt"><div class="t1" id="figureName">当前：小忆（默认美女）</div><div class="t2">写实 · 治愈系</div></div><div class="pick">更换 ›</div>
+          <div class="ri">🖼️</div><div class="rt"><div class="t1" id="figureName">当前：小忆（默认美女）</div><div class="t2">写实形象 · 生成后本地缓存</div></div><div class="pick">管理 ›</div>
+        </div></div>
+
+        <div class="seg">🎬 对口型视频</div>
+        <div class="card"><div class="row" id="clearVideoRow" style="cursor:pointer;">
+          <div class="ri">🎬</div><div class="rt"><div class="t1">对口型视频缓存</div><div class="t2">同样的话复用已生成视频；清除后下次重新生成</div></div><div class="pick">清除</div>
         </div></div>
 
         <div class="seg">🔊 音色</div>
@@ -281,11 +286,18 @@
         </div>
 
         <div class="seg">🎙️ 语音输入</div>
-        <div class="card"><div class="row" id="autoSendRow" style="cursor:pointer;">
-          <div class="ri">📤</div>
-          <div class="rt"><div class="t1">说完自动发送</div><div class="t2">录完直接发；关掉则填入输入框，可改字再发</div></div>
-          <div class="toggle on" id="autoSendToggle"></div>
-        </div></div>
+        <div class="card">
+          <div class="row" id="autoSendRow" style="cursor:pointer;">
+            <div class="ri">📤</div>
+            <div class="rt"><div class="t1">说完自动发送</div><div class="t2">录完直接发；关掉则填入输入框，可改字再发</div></div>
+            <div class="toggle on" id="autoSendToggle"></div>
+          </div>
+          <div class="row" id="continuousRow" style="cursor:pointer;">
+            <div class="ri">🔄</div>
+            <div class="rt"><div class="t1">持续对话（免手）</div><div class="t2">AI 回完自动开麦听你说；关掉省电</div></div>
+            <div class="toggle on" id="continuousToggle"></div>
+          </div>
+        </div>
 
         <div class="seg">🎚️ 语音微调</div>
         <div class="card">
@@ -360,6 +372,7 @@ const state = {
   busy: false,
   asrProvider: 'webspeech',   // 由 /api/health 的 asr.provider 决定（webspeech / whisper）
   autoSend: true,             // 语音识别后是否自动发送（设置面板开关，默认开）
+  continuousMode: true,       // 持续对话：AI 回完自动开麦（设置面板开关，默认开）
 };
 
 const PERSONAS = {
@@ -481,6 +494,10 @@ async function sendMessage(text){
   }
   setState('idle'); showStatic();
   state.busy = false; setInputEnabled(true);
+  // 持续对话：AI 回完自动开麦听下一句（whisper 模式 + 开关开 + 在对话页）
+  if (state.continuousMode && state.asrProvider === 'whisper' && !recording){
+    setTimeout(() => { if (!state.busy && !recording && state.view === 'chat') toggleMicWhisper(); }, 500);
+  }
 }
 
 function waitVideoEnd(){
@@ -711,7 +728,7 @@ function startVAD(stream){
     src.connect(analyser);
     const data = new Uint8Array(analyser.frequencyBinCount);
     let hasSpoken = false, silenceStart = 0;
-    const SILENCE_MS = 1400, THRESHOLD = 14;   // 静音多久算讲完 / 音量阈值（可调）
+    const SILENCE_MS = 1400, THRESHOLD = 14, NO_SPEECH_MS = 8000;   // 静音多久算讲完 / 音量阈值 / 一直没说话多久放弃（持续对话省电）
     const startedAt = performance.now();
     const tick = () => {
       if (!recording){ stopVAD(); return; }
@@ -724,6 +741,7 @@ function startVAD(stream){
         if (!silenceStart) silenceStart = now;
         else if (now - silenceStart > SILENCE_MS){ autoStopRecording(); return; }  // 讲完停顿→自动结束
       }
+      if (!hasSpoken && now - startedAt > NO_SPEECH_MS){ autoStopRecording(); return; }  // 一直没说话就退出，持续对话不空转省电
       if (now - startedAt > 30000){ autoStopRecording(); return; }   // 兜底：最长录 30s
       vadRAF = requestAnimationFrame(tick);
     };
@@ -765,6 +783,23 @@ function bindSettings(){
     state.autoSend = !state.autoSend;
     $('autoSendToggle').classList.toggle('on', state.autoSend);
     toast(state.autoSend ? '已开启：说完自动发送' : '已关闭：识别后可改字再发', 2000);
+  });
+  // 「持续对话」开关
+  $('continuousRow').addEventListener('click', () => {
+    state.continuousMode = !state.continuousMode;
+    $('continuousToggle').classList.toggle('on', state.continuousMode);
+    toast(state.continuousMode ? '已开启：AI 回完自动开麦' : '已关闭：需手动点麦克风', 2200);
+    if (!state.continuousMode && recording && mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();   // 关闭时若正在自动录音，停掉
+    }
+  });
+  // 「清除对口型视频缓存」
+  $('clearVideoRow').addEventListener('click', async () => {
+    if (!confirm('清除所有对口型视频缓存？下次说这些话会重新生成')) return;
+    try {
+      await fetch('/api/avatar/realhuman/speak-cache', { method: 'DELETE' });
+      toast('对口型视频缓存已清除');
+    } catch(e){ toast('清除失败：' + (e.message||e)); }
   });
 }
 

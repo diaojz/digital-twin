@@ -923,6 +923,13 @@ app.delete('/api/avatar/realhuman/figure', (_req, res) => {
   res.json({ ok: true });
 });
 
+// ── 对口型视频缓存：单独清除（不动形象）─────────────────────
+app.delete('/api/avatar/realhuman/speak-cache', (_req, res) => {
+  clearSpeakCache();
+  console.log('[RealHuman] 对口型视频缓存已清除');
+  res.json({ ok: true });
+});
+
 // ── 真人形象：生成形象图 + 检测人脸 ─────────────────────────
 /**
  * POST /api/avatar/realhuman/figure
