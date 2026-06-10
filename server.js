@@ -1005,7 +1005,7 @@ app.post('/api/avatar/realhuman/figure', async (req, res) => {
  * 耗时约 1-3min（两步异步任务轮询）
  */
 app.post('/api/avatar/realhuman/speak', async (req, res) => {
-  const { text, voice, rate, pitch, volume } = req.body || {};
+  const { text, voice, rate, pitch, volume, lipsync } = req.body || {};
   if (!text || typeof text !== 'string' || !text.trim()) {
     return res.status(400).json({ error: 'text 字段不能为空' });
   }
@@ -1043,6 +1043,12 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
   // 没有形象 → 只返回语音（前端播声音 + 占位/默认形象），语音回复不依赖形象
   if (!rhFigure) {
     return res.json({ audioUrl, videoError: '尚未生成形象，仅语音回复' });
+  }
+
+  // 流畅模式：未要求现场对口型（且缓存未命中）→ 只回语音，不烧 EMO、不卡顿。
+  // 对口型视频请在设置里「预生成」，或开启「对话时生成对口型」开关。
+  if (!lipsync) {
+    return res.json({ audioUrl, videoError: '流畅模式：仅语音（对口型可在设置预生成或开启对话对口型）' });
   }
 
   // Step 2: emoGen → 对口型视频（失败则降级：仍返回 audioUrl，前端只播音频 + 静态图，不卡死）

@@ -263,9 +263,19 @@
         </div></div>
 
         <div class="seg">🎬 对口型视频</div>
-        <div class="card"><div class="row" id="clearVideoRow" style="cursor:pointer;">
-          <div class="ri">🎬</div><div class="rt"><div class="t1">对口型视频缓存</div><div class="t2">同样的话复用已生成视频；清除后下次重新生成</div></div><div class="pick">清除</div>
-        </div></div>
+        <div class="card">
+          <div class="row" id="lipsyncRow" style="cursor:pointer;">
+            <div class="ri">🎬</div><div class="rt"><div class="t1">对话时生成对口型</div><div class="t2">开：每句现场生成嘴型(慢~40s)；关：对话只用缓存视频+语音，更流畅</div></div><div class="toggle" id="lipsyncToggle"></div>
+          </div>
+          <div style="padding:10px 2px;border-bottom:1px solid var(--line);">
+            <div style="font-size:12px;color:#4a3f70;font-weight:600;margin-bottom:6px;">预生成对口型（在这里等，对话就秒出）</div>
+            <textarea class="prompt-box" id="lipsyncText" placeholder="输入一句小忆常说的话，比如开场白…" style="min-height:46px;"></textarea>
+            <button class="btn ghost" id="lipsyncGenBtn" style="margin-top:8px;">🎬 生成这句的对口型视频</button>
+          </div>
+          <div class="row" id="clearVideoRow" style="cursor:pointer;">
+            <div class="ri">🗑️</div><div class="rt"><div class="t1">清除视频缓存</div><div class="t2">清掉所有已生成的对口型视频</div></div><div class="pick">清除</div>
+          </div>
+        </div>
 
         <div class="seg">🔊 音色</div>
         <div class="card"><div class="chips" id="voiceChips">
@@ -373,6 +383,7 @@ const state = {
   asrProvider: 'webspeech',   // 由 /api/health 的 asr.provider 决定（webspeech / whisper）
   autoSend: true,             // 语音识别后是否自动发送（设置面板开关，默认开）
   continuousMode: true,       // 持续对话：AI 回完自动开麦（设置面板开关，默认开）
+  lipsyncInChat: false,       // 对话时是否现场生成对口型视频（默认关=流畅；开则每句慢~40s）
 };
 
 const PERSONAS = {
@@ -468,14 +479,17 @@ async function sendMessage(text){
   if (!reply.trim()){ reply = '我在呢，再跟我说说？'; aiDiv.textContent = reply; }
   state.messages.push({ role:'assistant', content:reply });
 
-  // 2) 语音回复（总是合成语音；有形象+EMO 时额外出对口型视频）
-  setState('gen');
-  $('genTitle').textContent = state.figureReady ? '形象正在对口型…' : '正在合成语音…';
-  $('genSub').textContent  = state.figureReady ? 'EMO 生成视频中 · 约需十几秒到一两分钟' : 'CosyVoice 龙婉合成中…';
+  // 2) 语音回复（流畅模式只语音+静态图、秒回；开了对话对口型才现场生成视频）
+  const mayGenVideo = state.figureReady && state.lipsyncInChat;
+  setState(mayGenVideo ? 'gen' : 'think');     // 流畅模式用 think（无遮罩、秒回）
+  if (mayGenVideo){
+    $('genTitle').textContent = '形象正在对口型…';
+    $('genSub').textContent  = 'EMO 生成视频中 · 约需十几秒到一两分钟';
+  }
   try {
     const r = await fetch('/api/avatar/realhuman/speak', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ text:reply, voice:state.voice, rate:state.rate, pitch:state.pitch, volume:state.volume }),
+      body: JSON.stringify({ text:reply, voice:state.voice, rate:state.rate, pitch:state.pitch, volume:state.volume, lipsync: state.lipsyncInChat }),
     });
     const data = await r.json();
     if (r.ok && data.videoUrl){
@@ -793,6 +807,12 @@ function bindSettings(){
       mediaRecorder.stop();   // 关闭时若正在自动录音，停掉
     }
   });
+  // 「对话时生成对口型」开关（默认关=流畅模式）
+  $('lipsyncRow').addEventListener('click', () => {
+    state.lipsyncInChat = !state.lipsyncInChat;
+    $('lipsyncToggle').classList.toggle('on', state.lipsyncInChat);
+    toast(state.lipsyncInChat ? '已开启：对话现场生成对口型（每句较慢）' : '已关闭：对话用缓存视频+语音（流畅）', 2600);
+  });
   // 「清除对口型视频缓存」
   $('clearVideoRow').addEventListener('click', async () => {
     if (!confirm('清除所有对口型视频缓存？下次说这些话会重新生成')) return;
@@ -800,6 +820,23 @@ function bindSettings(){
       await fetch('/api/avatar/realhuman/speak-cache', { method: 'DELETE' });
       toast('对口型视频缓存已清除');
     } catch(e){ toast('清除失败：' + (e.message||e)); }
+  });
+  // 「预生成对口型视频」（在设置里等，对话说到这句秒出）
+  $('lipsyncGenBtn').addEventListener('click', async () => {
+    const t = $('lipsyncText').value.trim();
+    if (!t){ toast('先输入一句话'); return; }
+    if (!state.figureReady){ toast('请先在「形象图片」里生成形象'); return; }
+    const btn = $('lipsyncGenBtn'); btn.disabled = true; btn.textContent = '🎬 生成中…约 40 秒，请稍候';
+    try {
+      const r = await fetch('/api/avatar/realhuman/speak', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ text:t, voice:state.voice, rate:state.rate, pitch:state.pitch, volume:state.volume, lipsync:true }),
+      });
+      const d = await r.json();
+      if (r.ok && d.videoUrl) toast('✅ 已生成并缓存，对话说这句会秒出对口型', 3500);
+      else throw new Error(d.videoError || d.error || '生成失败');
+    } catch(e){ toast('生成失败：' + (e.message||e), 3500); }
+    finally { btn.disabled = false; btn.textContent = '🎬 生成这句的对口型视频'; }
   });
 }
 
