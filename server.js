@@ -291,6 +291,27 @@ try {
 
 // ── Express 应用 ─────────────────────────────────────────────
 const app = express();
+// ── 在线演示访问口令（可选，公网部署必开）──────────────────
+// .env 设置 ACCESS_CODE 后启用：首次访问带 ?code=口令，通过后种 cookie 30 天免输。
+// 用途：公网演示时保护 DASHSCOPE_API_KEY 额度不被陌生人消耗（EMO 按秒计费）。
+// 本地使用不设 ACCESS_CODE 即可，行为完全不变。
+const ACCESS_CODE = process.env.ACCESS_CODE || '';
+if (ACCESS_CODE) {
+  console.log('[Config] ACCESS_CODE 已启用（在线演示口令保护）');
+  app.use((req, res, next) => {
+    const cookies = Object.fromEntries(
+      (req.headers.cookie || '').split(';').map(s => s.trim().split('=')).filter(p => p.length === 2)
+    );
+    if (cookies.twin_code === ACCESS_CODE) return next();
+    const q = new URL(req.url, 'http://placeholder').searchParams.get('code');
+    if (q === ACCESS_CODE) {
+      res.setHeader('Set-Cookie', `twin_code=${ACCESS_CODE}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax`);
+      return next();
+    }
+    res.status(401).send('<!doctype html><meta charset="utf-8"><body style="font-family:sans-serif;text-align:center;padding-top:20vh;background:#f4effb;color:#4a3f70;"><h2>🔒 小忆在线演示</h2><p>需要访问口令：请用 <code>?code=口令</code> 形式的完整链接访问</p></body>');
+  });
+}
+
 // limit 调大：上传自定义照片走 base64 JSON（默认 100kb 装不下一张照片）
 app.use(express.json({ limit: '15mb' }));
 
