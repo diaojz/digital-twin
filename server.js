@@ -39,7 +39,7 @@ import {
   getProfile,
   setProfile,
 } from './memory.js';
-import { tts as dashscopeTts, genFigure, emoDetect, emoGen } from './realhuman/api.js';
+import { tts as dashscopeTts, genFigure, emoDetect, emoGen, uploadFile } from './realhuman/api.js';
 
 // ── 读取 .env 文件（如果存在） ──────────────────────────────
 // Node 24 原生支持 --env-file 参数，但为了兼容旧版本，这里手动解析
@@ -192,6 +192,10 @@ const FIGURE_CACHE_FILE = join(__dirname, 'data', 'realhuman-figure.json');
 // 形象图本地缓存目录（下载到 public/ 下，前端直接访问，不依赖 24h 临时 URL）
 const AVATAR_DIR = join(__dirname, 'public', 'avatars');
 const AVATAR_FILE = join(AVATAR_DIR, 'current.png');
+// 用户上传的自定义照片（前端 canvas 统一转成 jpeg 再传上来）
+const AVATAR_UPLOAD_FILE = join(AVATAR_DIR, 'current-upload.jpg');
+// oss:// 临时存储 URL 官方有效期 48h，留 1h 余量提前刷新
+const OSS_URL_TTL_MS = 47 * 60 * 60 * 1000;
 
 // 把生成的形象图下载到本地，返回前端可访问的相对路径
 async function downloadFigure(imageUrl) {
@@ -287,7 +291,8 @@ try {
 
 // ── Express 应用 ─────────────────────────────────────────────
 const app = express();
-app.use(express.json());
+// limit 调大：上传自定义照片走 base64 JSON（默认 100kb 装不下一张照片）
+app.use(express.json({ limit: '15mb' }));
 
 // 静态文件（前端 HTML、CSS、JS）
 app.use(express.static(join(__dirname, 'public'), {
@@ -959,7 +964,7 @@ app.get('/api/avatar/config', (_req, res) => {
     // 真人服务地址由后端代理，前端不需要直接连，这里只返回是否已配置
     realHumanConfigured: !!realHumanServiceUrl,
     // 当前缓存的真人形象（若有）：优先本地图（持久、不过期）
-    figure: rhFigure ? { imageUrl: rhFigure.imageUrl, localImage: rhFigure.localImage, version: rhFigure.version } : null,
+    figure: rhFigure ? { imageUrl: rhFigure.imageUrl, localImage: rhFigure.localImage, version: rhFigure.version, source: rhFigure.source } : null,
   });
 });
 
@@ -968,6 +973,7 @@ app.delete('/api/avatar/realhuman/figure', (_req, res) => {
   rhFigure = null;
   try { if (existsSync(FIGURE_CACHE_FILE)) unlinkSync(FIGURE_CACHE_FILE); } catch (_) {}
   try { if (existsSync(AVATAR_FILE)) unlinkSync(AVATAR_FILE); } catch (_) {}
+  try { if (existsSync(AVATAR_UPLOAD_FILE)) unlinkSync(AVATAR_UPLOAD_FILE); } catch (_) {}
   clearSpeakCache();   // 换形象 → 旧对口型视频失效，一并清空
   console.log('[RealHuman] 形象与对口型视频缓存已重置');
   res.json({ ok: true });
@@ -1046,6 +1052,100 @@ app.post('/api/avatar/realhuman/figure', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ── 真人形象：上传自定义照片 ─────────────────────────────────
+/**
+ * POST /api/avatar/realhuman/figure/upload
+ * 请求体：{ image: "data:image/jpeg;base64,...", ratio?: "3:4"|"1:1" }
+ *
+ * 和「提示词生成」的区别：不调文生图，直接用用户照片。
+ * 但 EMO 的 image_url 只认公网 URL（不支持 base64），所以本地照片要先走
+ * DashScope 官方「临时存储」换成 oss:// URL（48h 有效，过期 speak 时自动重传）。
+ *
+ * 流程：解码 base64 → 存本地（永久）→ 上传临时存储×2（detect/gen 各一份，
+ *       官方要求上传时绑定的模型和后续调用一致）→ 人脸检测 → 缓存 rhFigure
+ */
+app.post('/api/avatar/realhuman/figure/upload', async (req, res) => {
+  const { image, ratio: r } = req.body || {};
+  const m = typeof image === 'string' && image.match(/^data:image\/(jpeg|png|webp|bmp);base64,(.+)$/);
+  if (!m) {
+    return res.status(400).json({ error: 'image 需要 dataURL 格式（jpg/png/webp/bmp）' });
+  }
+  const ratio = r === '1:1' ? '1:1' : '3:4';
+  const buf = Buffer.from(m[2], 'base64');
+  if (buf.length > 8 * 1024 * 1024) {
+    return res.status(413).json({ error: '照片太大（解码后 >8MB），请换一张小一点的' });
+  }
+  console.log(`[RealHuman/upload] 收到照片 ${(buf.length / 1024).toFixed(0)}KB，ratio: ${ratio}`);
+
+  try {
+    // Step 1: 存到本地永久缓存（前端展示用，也是 48h 后重传的源文件）
+    if (!existsSync(AVATAR_DIR)) mkdirSync(AVATAR_DIR, { recursive: true });
+    writeFileSync(AVATAR_UPLOAD_FILE, buf);
+    const localImage = '/avatars/current-upload.jpg';
+
+    // Step 2: 上传到 DashScope 临时存储。文件和模型绑定，detect / gen 各传一份
+    console.log('[RealHuman/upload] 上传到 DashScope 临时存储...');
+    const [ossDetectUrl, ossGenUrl] = await Promise.all([
+      uploadFile(buf, 'figure.jpg', 'emo-detect-v1'),
+      uploadFile(buf, 'figure.jpg', 'emo-v1'),
+    ]);
+    console.log('[RealHuman/upload] oss URL（detect）:', ossDetectUrl);
+
+    // Step 3: 人脸检测。和生成链路一样降级不阻塞——检测失败仍可当静态形象用
+    let faceBbox = [];
+    let extBbox = [];
+    let checkPass = false;
+    let detectError = null;
+    try {
+      const bbox = await emoDetect(ossDetectUrl, ratio);
+      console.log('[RealHuman/upload] emoDetect 结果:', JSON.stringify(bbox));
+      faceBbox = bbox.face_bbox || [];
+      extBbox = bbox.ext_bbox || [];
+      checkPass = bbox.check_pass || false;
+      if (!checkPass) detectError = '人脸检测未通过：请换一张单人、正面、五官清晰的照片';
+    } catch (e) {
+      detectError = e.message;
+      console.warn('[RealHuman/upload] emoDetect 失败（降级为仅静态形象）:', e.message);
+    }
+
+    // Step 4: 缓存。imageUrl 存「绑定 emo-v1 的那份」，speak 生成视频时直接用；
+    //         source/uploadedAt 用于：前端区分文案 + 48h 过期自动重传
+    const version = Date.now();
+    rhFigure = { imageUrl: ossGenUrl, localImage, faceBbox, extBbox, version, source: 'upload', uploadedAt: Date.now() };
+    try {
+      writeFileSync(FIGURE_CACHE_FILE, JSON.stringify(rhFigure));
+    } catch (e) {
+      console.warn('[RealHuman] 形象缓存写入失败（忽略）:', e.message);
+    }
+
+    res.json({ imageUrl: ossGenUrl, localImage, version, faceBbox, extBbox, checkPass, detectError, source: 'upload' });
+  } catch (err) {
+    console.error('[RealHuman/upload] 上传照片失败:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * 上传形象的 oss:// URL 只有 48h 有效；生成视频前若快过期，
+ * 用本地存的原图重新上传一份（绑定 emo-v1），bbox 是像素坐标、图没变所以不用重新检测。
+ * @returns {Promise<string>} 当前可用的形象图 URL
+ */
+async function freshFigureImageUrl() {
+  if (rhFigure.source === 'upload' && Date.now() - (rhFigure.uploadedAt || 0) > OSS_URL_TTL_MS) {
+    console.log('[RealHuman] 上传形象的 oss URL 已过期，重新上传刷新...');
+    let buf;
+    try {
+      buf = readFileSync(AVATAR_UPLOAD_FILE);
+    } catch (_) {
+      throw new Error('上传的照片原图已丢失，请到「设置 → 形象图片」重新上传照片');
+    }
+    rhFigure.imageUrl = await uploadFile(buf, 'figure.jpg', 'emo-v1');
+    rhFigure.uploadedAt = Date.now();
+    try { writeFileSync(FIGURE_CACHE_FILE, JSON.stringify(rhFigure)); } catch (_) {}
+  }
+  return rhFigure.imageUrl;
+}
 
 // ── 真人形象：文字转说话视频 ─────────────────────────────────
 /**
@@ -1130,7 +1230,8 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
   // Step 2: emoGen → 对口型视频（失败则降级：仍返回 audioUrl，前端只播音频 + 静态图，不卡死）
   try {
     console.log('[RealHuman/speak] 调用 emoGen...');
-    const videoUrl = await emoGen(rhFigure.imageUrl, audioUrl, {
+    const figureUrl = await freshFigureImageUrl();   // 上传形象超 48h 自动重传刷新
+    const videoUrl = await emoGen(figureUrl, audioUrl, {
       face_bbox: rhFigure.faceBbox,
       ext_bbox: rhFigure.extBbox,
     });

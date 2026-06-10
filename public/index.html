@@ -344,6 +344,13 @@
           </div>
         </div>
 
+        <div class="seg">上传我的照片做形象</div>
+        <input type="file" id="photoFile" accept="image/*" style="display:none;">
+        <button class="btn" id="uploadPhotoBtn">📷 上传照片（对口型视频用这张脸）</button>
+        <div class="card" style="margin-top:10px;padding:11px 14px;">
+          <div style="font-size:11px;color:var(--ink-faint);line-height:1.6;">照片要求：单人、正面、五官清晰、无遮挡，jpg/png 均可，最短边 ≥ 400 像素。上传后会自动做人脸检测，通过后生成的视频就是照片里的你。</div>
+        </div>
+
         <div class="seg">提示词生成新形象</div>
         <textarea class="prompt-box" id="figurePrompt">一位温柔治愈的年轻亚洲女性，正面肖像，清晰五官，柔和自然微笑，简洁柔光纯色背景，写实摄影风格，高质量</textarea>
         <button class="btn" id="genFigureBtn">✨ 生成形象（约 30-60 秒）</button>
@@ -618,13 +625,68 @@ async function generateFigure(){
   }
 }
 function applyFigure(fig){
-  // fig: {localImage?, imageUrl, version?}。优先本地图（持久、不过期），带 version 破缓存
+  // fig: {localImage?, imageUrl, version?, source?}。优先本地图（持久、不过期），带 version 破缓存
   const src = (fig.localImage ? fig.localImage + '?v=' + (fig.version || '') : fig.imageUrl);
   state.figureReady = true;
   figureImg.src = src;
   $('avatarPreview').src = src;
-  $('figureName').textContent = '当前：小忆（已生成）';
+  $('figureName').textContent = fig.source === 'upload' ? '当前：我的照片' : '当前：小忆（已生成）';
   showStatic();
+}
+
+// ====== 上传自定义照片做形象 ======
+// 选片后先在浏览器里预处理（canvas 重绘）：
+//   1. 校验最短边 ≥ 400px（EMO 官方下限，太小直接拦下不浪费上传）
+//   2. 最长边压到 1280px（够用且省流量），但保证压完最短边仍 ≥ 400
+//   3. 统一转成 jpeg（顺带抹平 EXIF 旋转和 heic 等浏览器能解但后端难处理的格式）
+async function uploadPhoto(file){
+  if (state.busy){ toast('小忆正在忙，请稍候再上传'); return; }
+
+  let dataUrl;
+  try {
+    const img = new Image();
+    const objUrl = URL.createObjectURL(file);
+    await new Promise((ok, bad) => { img.onload = ok; img.onerror = () => bad(new Error('图片读取失败，请换一张试试')); img.src = objUrl; });
+    URL.revokeObjectURL(objUrl);
+    const w = img.naturalWidth, h = img.naturalHeight;
+    if (Math.min(w, h) < 400){ toast('照片太小：最短边需 ≥ 400 像素', 3500); return; }
+    let scale = Math.min(1, 1280 / Math.max(w, h));
+    scale = Math.max(scale, Math.min(1, 400 / Math.min(w, h)));
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(w * scale); cv.height = Math.round(h * scale);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    dataUrl = cv.toDataURL('image/jpeg', 0.92);
+  } catch (e){
+    toast(e.message || '图片处理失败', 3500); return;
+  }
+
+  state.busy = true;
+  const btn = $('uploadPhotoBtn');
+  btn.disabled = true; btn.textContent = '📷 上传 + 人脸检测中…';
+  $('avatarState').textContent = '正在上传照片 + 人脸检测…';
+  try {
+    const r = await fetch('/api/avatar/realhuman/figure/upload', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ image: dataUrl, ratio: state.ratio }),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.imageUrl) throw new Error(data.error || '上传失败');
+    applyFigure(data);
+    if (data.detectError){
+      // 照片能当静态形象，但没过人脸检测 → 对口型出不来，提示换照片
+      $('avatarState').textContent = '⚠️ 照片已设为形象；对口型不可用（' + data.detectError + '）';
+      toast('人脸检测未通过，换一张正面清晰的照片可重试', 4200);
+    } else {
+      $('avatarState').textContent = '✅ 我的照片已就绪，生成的视频会用这张脸';
+      toast('照片上传成功！');
+    }
+  } catch (e){
+    $('avatarState').textContent = '❌ 上传失败：' + (e.message||e);
+    toast('上传失败：' + (e.message||e), 3500);
+  } finally {
+    state.busy = false;
+    btn.disabled = false; btn.textContent = '📷 上传照片（对口型视频用这张脸）';
+  }
 }
 async function resetFigure(){
   if (state.busy){ toast('忙着呢，稍候再重置'); return; }
@@ -910,6 +972,12 @@ async function init(){
   $('micBtn').onclick = toggleMic;
   $('genFigureBtn').onclick = generateFigure;
   $('resetFigureBtn').onclick = resetFigure;
+  $('uploadPhotoBtn').onclick = () => $('photoFile').click();
+  $('photoFile').onchange = (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';   // 清掉选择，同一张图也能再次触发 onchange
+    if (f) uploadPhoto(f);
+  };
   inputEl.addEventListener('keydown', e => { if (e.key==='Enter') sendMessage(inputEl.value); });
 
   // 时钟

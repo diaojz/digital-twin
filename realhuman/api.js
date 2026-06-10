@@ -7,6 +7,7 @@
  *   - genFigure      wanx2.1-t2i-turbo 文生图
  *   - emoDetect      emo-detect-v1 人脸检测
  *   - emoGen         emo-v1 对口型视频生成
+ *   - uploadFile     本地文件 → DashScope 临时存储（oss:// URL，48h 有效）
  *   - pollTask       内部通用轮询（间隔 3s，最多 60 次）
  *
  * 注意：所有鉴权从 process.env.DASHSCOPE_API_KEY 读取，
@@ -149,6 +150,66 @@ export async function tts(text, { voice = 'longwan_v2', rate = 1.0, pitch = 1.0,
   return audioUrl;
 }
 
+// ── 本地文件上传（DashScope 临时存储） ───────────────────────
+
+/**
+ * 把本地文件（Buffer）上传到 DashScope 临时存储，换取模型可用的 oss:// URL。
+ * 官方链路：getPolicy 拿上传凭证 → 表单直传 OSS → oss://<key>。
+ * 调模型时需带请求头 X-DashScope-OssResourceResolve: enable（emoDetect/emoGen 已自动处理）。
+ *
+ * ⚠️ 两个硬性约束（来自官方文档）：
+ *   1. 上传时的 model 必须和后续调用的模型一致（emo-detect-v1 / emo-v1 要各传一次）
+ *   2. oss:// URL 仅 48 小时有效，过期需重新上传（server.js 里有自动刷新）
+ *
+ * @param {Buffer} buffer    文件内容
+ * @param {string} filename  文件名（决定 OSS key 的扩展名）
+ * @param {string} model     后续要用这个文件调用的模型名
+ * @returns {Promise<string>} oss:// 形式的 URL
+ */
+export async function uploadFile(buffer, filename, model) {
+  // Step 1: 获取上传凭证（凭证约 5 分钟过期，每次现取）
+  const polUrl = `${DASH_BASE}/api/v1/uploads?action=getPolicy&model=${encodeURIComponent(model)}`;
+  const polResp = await fetch(polUrl, { headers: authHeaders() });
+  if (!polResp.ok) {
+    const body = await polResp.text();
+    throw new Error(`uploadFile 获取上传凭证失败 HTTP ${polResp.status}: ${body}`);
+  }
+  const pol = (await polResp.json())?.data;
+  const need = ['policy', 'signature', 'oss_access_key_id', 'upload_host', 'upload_dir', 'x_oss_object_acl', 'x_oss_forbid_overwrite'];
+  if (!pol || need.some(k => pol[k] === undefined)) {
+    throw new Error('uploadFile 上传凭证响应缺字段（DashScope 接口可能已变更）');
+  }
+
+  // Step 2: 表单直传 OSS。字段顺序有讲究：file 必须是最后一个表单域
+  const key = `${pol.upload_dir}/${Date.now()}-${filename}`;
+  const form = new FormData();
+  form.append('OSSAccessKeyId', pol.oss_access_key_id);
+  form.append('policy', pol.policy);
+  form.append('Signature', pol.signature);
+  form.append('key', key);
+  form.append('x-oss-object-acl', pol.x_oss_object_acl);
+  form.append('x-oss-forbid-overwrite', pol.x_oss_forbid_overwrite);
+  form.append('success_action_status', '200');
+  form.append('file', new Blob([buffer]), filename);
+
+  const upResp = await fetch(pol.upload_host, { method: 'POST', body: form });
+  if (!upResp.ok) {
+    const body = await upResp.text();
+    throw new Error(`uploadFile OSS 直传失败 HTTP ${upResp.status}: ${body}`);
+  }
+
+  return `oss://${key}`;
+}
+
+/**
+ * 图片 URL 若是 oss:// 临时存储链接，调模型时要额外带解析头
+ */
+function ossResolveHeaders(imageUrl) {
+  return imageUrl.startsWith('oss://')
+    ? { 'X-DashScope-OssResourceResolve': 'enable' }
+    : {};
+}
+
 // ── 文生图（wanx2.1-t2i-turbo 异步） ─────────────────────────
 
 /**
@@ -207,7 +268,7 @@ export async function emoDetect(imageUrl, ratio = '3:4') {
 
   const resp = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: { ...authHeaders(), ...ossResolveHeaders(imageUrl) },
     body: JSON.stringify({
       model: 'emo-detect-v1',
       input: { image_url: imageUrl },
@@ -248,6 +309,7 @@ export async function emoGen(imageUrl, audioUrl, bbox) {
     method: 'POST',
     headers: {
       ...authHeaders(),
+      ...ossResolveHeaders(imageUrl),
       'X-DashScope-Async': 'enable',
     },
     body: JSON.stringify({
