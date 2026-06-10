@@ -201,7 +201,14 @@ const app = express();
 app.use(express.json());
 
 // 静态文件（前端 HTML、CSS、JS）
-app.use(express.static(join(__dirname, 'public')));
+app.use(express.static(join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    // HTML 不缓存：前端改动刷新即生效（避免浏览器拿到旧页面，开发/演示友好）
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  },
+}));
 
 // ── POST /api/chat ───────────────────────────────────────────
 /**
