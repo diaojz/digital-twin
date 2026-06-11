@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD v2.0 · 数字分身两端版（子女端 × 父母端）</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  --bg: #ece7de; --card: #ffffff; --card-alt: #f7f4ef;
+  --border: #2a2a2a; --border-light: #d5d0c7;
+  --text: #1a1a1a; --text-dim: #6b6560; --radius: 16px;
+  --orange: #e8682a; --yellow: #d4a017; --green: #2d8a56;
+  --blue: #2563a8; --purple: #7c3aad; --red: #c93545; --cyan: #0e7490;
+  --shadow-card: 0 1px 2px rgba(60,45,30,.06), 0 18px 40px -12px rgba(120,90,55,.14);
+  --border-card: 1px solid rgba(180,150,110,.28);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+[id^="sec-"] { scroll-margin-top: 24px; }
+body { background: var(--bg); color: var(--text); font-family: 'DM Sans', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; -webkit-font-smoothing: antialiased; }
+h1, h2 { font-family: 'Playfair Display', 'Songti SC', serif; font-weight: 900; }
+.container { max-width: 1280px; margin: 0 auto; padding: 0 32px 80px; }
+
+.hero { padding: 52px 0 36px; border-bottom: 1px solid var(--border-light); margin-bottom: 32px; }
+.hero .kicker { font-family: 'JetBrains Mono', monospace; font-size: .68rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--orange); margin-bottom: 14px; }
+.hero h1 { font-size: 2.7rem; line-height: 1.18; letter-spacing: -1px; }
+.hero h1 .dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: var(--orange); margin-left: 8px; }
+.hero-desc { font-size: .92rem; color: var(--text-dim); line-height: 1.7; margin-top: 16px; max-width: 700px; }
+.hero-stats { display: flex; gap: 12px; margin-top: 28px; }
+.stat-pill { border: 1px solid var(--border); border-radius: 40px; background: var(--card); padding: 13px 20px; text-align: center; flex: 1; min-width: 0; }
+.stat-pill .num { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 900; display: block; }
+.stat-pill .lbl { font-size: .62rem; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dim); margin-top: 4px; display: block; }
+
+.nav { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 36px; }
+.nav-tag { padding: 7px 16px; border-radius: 24px; border: 1px solid var(--border); font-size: .78rem; font-weight: 600; background: var(--card); color: var(--text); text-decoration: none; transition: all .25s; }
+.nav-tag:hover, .nav-tag.active { background: var(--border); color: #fff; }
+
+.module { margin-bottom: 46px; }
+.module-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+.module-num { font-family: 'JetBrains Mono', monospace; font-size: .68rem; font-weight: 700; padding: 3px 11px; border-radius: 20px; border: 1.5px solid; letter-spacing: 1px; }
+.module-head h2 { font-size: 1.45rem; letter-spacing: -.5px; }
+.module-sub { margin-left: auto; font-size: .8rem; color: var(--text-dim); }
+
+.bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.card { background: var(--card); border: var(--border-card); border-top: 1px solid rgba(255,250,240,.7); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-card); transition: transform .2s ease-out; }
+.card:hover { transform: translateY(-2px); }
+.card.span-2 { grid-column: span 2; }
+.card.span-3 { grid-column: span 3; }
+.card.alt { background: var(--card-alt); }
+.card-header { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+.card-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+.card-title { font-size: .93rem; font-weight: 700; line-height: 1.35; }
+.card-tag { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: .6rem; font-weight: 600; background: var(--card-alt); padding: 3px 9px; border-radius: 8px; color: var(--text-dim); white-space: nowrap; }
+.pts { list-style: none; }
+.pts li { font-size: .81rem; color: var(--text-dim); padding: 4px 0 4px 18px; position: relative; line-height: 1.55; }
+.pts li::before { content: ''; position: absolute; left: 0; top: 11px; width: 6px; height: 6px; border-radius: 2px; background: var(--orange); }
+.pts li strong { color: var(--text); font-weight: 600; }
+
+.t-blue .pts li::before { background: var(--blue); }   .t-blue .module-num { color: var(--blue); border-color: var(--blue); }     .t-blue .card-icon { background: #dbe9f7; }
+.t-green .pts li::before { background: var(--green); } .t-green .module-num { color: var(--green); border-color: var(--green); } .t-green .card-icon { background: #d6f0e0; }
+.t-purple .pts li::before { background: var(--purple); } .t-purple .module-num { color: var(--purple); border-color: var(--purple); } .t-purple .card-icon { background: #ece0f7; }
+.t-orange .pts li::before { background: var(--orange); } .t-orange .module-num { color: var(--orange); border-color: var(--orange); } .t-orange .card-icon { background: #fde8d8; }
+.t-red .pts li::before { background: var(--red); }     .t-red .module-num { color: var(--red); border-color: var(--red); }       .t-red .card-icon { background: #f9d6d9; }
+.t-yellow .pts li::before { background: var(--yellow); } .t-yellow .module-num { color: #9a7510; border-color: var(--yellow); } .t-yellow .card-icon { background: #faf0d8; }
+.t-cyan .pts li::before { background: var(--cyan); }   .t-cyan .module-num { color: var(--cyan); border-color: var(--cyan); }   .t-cyan .card-icon { background: #d5eef2; }
+
+.tldr { border: 1.5px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 24px 28px; margin-bottom: 44px; box-shadow: var(--shadow-card); }
+.tldr .tldr-label { font-family: 'JetBrains Mono', monospace; font-size: .65rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--orange); margin-bottom: 13px; }
+.tldr-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.tldr-list li { display: flex; align-items: flex-start; gap: 12px; font-size: .89rem; line-height: 1.6; }
+.tldr-num { font-family: 'JetBrains Mono', monospace; font-size: .72rem; font-weight: 700; min-width: 22px; height: 22px; border-radius: 6px; background: var(--text); color: #fff; display: flex; align-items: center; justify-content: center; margin-top: 3px; flex-shrink: 0; }
+
+/* CSS 流程图 */
+.flow { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; margin: 6px 0; }
+.flow .fnode { background: var(--card-alt); border: 1px solid var(--border-light); border-radius: 12px; padding: 10px 14px; font-size: .78rem; line-height: 1.45; flex: 1; min-width: 120px; position: relative; }
+.flow .fnode b { display: block; font-size: .8rem; color: var(--text); margin-bottom: 2px; }
+.flow .fnode small { color: var(--text-dim); }
+.flow .farrow { display: flex; align-items: center; padding: 0 8px; color: var(--text-dim); font-weight: 700; flex: none; font-size: .9rem; }
+.fnode.f-parent { border-left: 4px solid var(--blue); }
+.fnode.f-ai { border-left: 4px solid var(--purple); }
+.fnode.f-child { border-left: 4px solid var(--green); }
+.fnode.f-sys { border-left: 4px solid var(--yellow); }
+.flow-legend { font-size: .7rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; margin-top: 10px; }
+
+/* 表格 */
+.tbl { width: 100%; border-collapse: collapse; font-size: .79rem; }
+.tbl th { font-family: 'JetBrains Mono', monospace; font-size: .63rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); text-align: left; padding: 9px 11px; border-bottom: 1.5px solid var(--border); }
+.tbl td { padding: 10px 11px; border-bottom: 1px solid var(--border-light); line-height: 1.5; color: var(--text-dim); vertical-align: top; }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl td:first-child { font-weight: 700; color: var(--text); white-space: nowrap; }
+.tbl .good { color: #1a6b3c; font-weight: 600; } .tbl .bad { color: #991b1b; font-weight: 600; } .tbl .meh { color: #7a5c0a; font-weight: 600; }
+.pri { font-family: 'JetBrains Mono', monospace; font-size: .62rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.p0 { background: #f9d6d9; color: #991b1b; } .p1 { background: #faf0d8; color: #7a5c0a; } .p2 { background: #dbe9f7; color: #1a4f8c; }
+
+.callout { border-left: 4px solid var(--red); background: #fdf0f1; border-radius: 0 12px 12px 0; padding: 14px 18px; font-size: .83rem; line-height: 1.6; color: #5a2a30; margin-top: 12px; }
+.callout.c-green { border-color: var(--green); background: #eef8f1; color: #1d4530; }
+.callout.c-blue { border-color: var(--blue); background: #eef4fb; color: #1c3a5e; }
+
+.source-footer { margin-top: 52px; padding: 24px 28px; background: var(--card-alt); border: 1px solid var(--border-light); border-radius: 12px; font-size: .76rem; color: var(--text-dim); line-height: 1.8; }
+.source-footer b { color: var(--text); }
+.source-footer a { color: var(--blue); text-decoration: none; }
+
+@media (max-width: 900px) {
+  .bento { grid-template-columns: 1fr; }
+  .card.span-2, .card.span-3 { grid-column: span 1; }
+  .hero-stats { flex-wrap: wrap; }
+  .stat-pill { flex: 1 1 calc(50% - 6px); }
+  .flow { flex-direction: column; }
+  .flow .farrow { transform: rotate(90deg); padding: 4px 0; justify-content: center; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ════════ Hero ════════ -->
+  <div class="hero">
+    <div class="kicker">Digital Twin · PRD v2.0 · 2026-06-12 · 状态：评审稿</div>
+    <h1>数字分身 · 两端版产品需求文档<span class="dot"></span></h1>
+    <p class="hero-desc">从「单端数字人 Demo」升级为「<strong>子女端 × 父母端</strong>」双端产品：子女 10 分钟造一个声音、长相都像自己的数字分身，父母随时打开就能「见到孩子」——闲聊有人陪、求助有人应、想念有得看。本文档承接 <a href="../../课件/9-数字分身/数字人方案调研-Seedance-OmniHuman-EMO.html" style="color:var(--blue)">2026-06-10 三路视频方案调研</a> 与现有工程实现（v0.x 单端 Demo），定义 MVP → V1 → V2 的完整产品规格。</p>
+    <div class="hero-stats">
+      <div class="stat-pill"><span class="num">2 端</span><span class="lbl">子女端 · 父母端</span></div>
+      <div class="stat-pill"><span class="num">1:N</span><span class="lbl">一个子女绑多位父母</span></div>
+      <div class="stat-pill"><span class="num">3 路</span><span class="lbl">视频后端可切换（已实现）</span></div>
+      <div class="stat-pill"><span class="num">2 周</span><span class="lbl">MVP 目标周期</span></div>
+    </div>
+  </div>
+
+  <!-- ════════ Nav ════════ -->
+  <div class="nav">
+    <a class="nav-tag active" href="#sec-tldr">结论速览</a>
+    <a class="nav-tag" href="#sec-bg">背景与问题</a>
+    <a class="nav-tag" href="#sec-pos">定位与原则</a>
+    <a class="nav-tag" href="#sec-user">用户画像</a>
+    <a class="nav-tag" href="#sec-ia">两端信息架构</a>
+    <a class="nav-tag" href="#sec-flow">核心流程</a>
+    <a class="nav-tag" href="#sec-privacy">隐私与伦理</a>
+    <a class="nav-tag" href="#sec-account">账号与家庭模型</a>
+    <a class="nav-tag" href="#sec-feat">功能详述</a>
+    <a class="nav-tag" href="#sec-tech">技术方案与现状</a>
+    <a class="nav-tag" href="#sec-nfr">非功能需求</a>
+    <a class="nav-tag" href="#sec-ms">里程碑</a>
+    <a class="nav-tag" href="#sec-risk">风险与开放问题</a>
+  </div>
+
+  <!-- ════════ TL;DR ════════ -->
+  <div class="tldr" id="sec-tldr">
+    <div class="tldr-label">⚡ TL;DR · 给评审者的五句话</div>
+    <ul class="tldr-list">
+      <li><span class="tldr-num">1</span><span><strong>产品本质是「异步的亲情在场感」</strong>：不承诺实时视频通话（技术做不到且没必要），承诺「父母随时能见到会回应的孩子」+「真人回复几分钟内变成孩子的脸说给父母听」。生成式视频的分钟级延迟在这个定位下是特性，不是缺陷。</span></li>
+      <li><span class="tldr-num">2</span><span><strong>最核心的差异化是「求助转真人」闭环</strong>（F4）：数字人先接住 → 推给子女 → 子女语音回一条 → 自动转成对口型视频「儿子回信」。豆包给的是答案，我们给的是「儿子教我的」。</span></li>
+      <li><span class="tldr-num">3</span><span><strong>现有工程是子女端的 80% 底座</strong>：三路视频 provider、话术库缓存、形象上传、Vue 工程全部直接复用；真正要新建的是家庭数据模型、收件箱异步消息、声音复刻三块。</span></li>
+      <li><span class="tldr-num">4</span><span><strong>隐私边界是信任命门</strong>：子女默认看不到父母聊天全文，只收到求助原文 + 摘要 + 告警。父母知道被全程监控，就不会真聊。</span></li>
+      <li><span class="tldr-num">5</span><span><strong>MVP 两周、先验生死问题</strong>：双入口 + 双口令（不建账号体系），自己家先跑两周，验证「父母会不会主动打开第二次」——这个不成立，后面一切投入都不必发生。</span></li>
+    </ul>
+  </div>
+
+  <!-- ════════ 01 背景与问题 ════════ -->
+  <div class="module t-blue" id="sec-bg">
+    <div class="module-head">
+      <span class="module-num">01</span>
+      <h2>背景与问题定义</h2>
+      <span class="module-sub">为什么做 · 为什么是现在 · 为什么是我们</span>
+    </div>
+    <div class="bento">
+      <div class="card">
+        <div class="card-header"><div class="card-icon">👵</div><div class="card-title">场景 A · 孤独陪伴</div><span class="card-tag">高频 · 日常</span></div>
+        <ul class="pts">
+          <li>老人独居或半独居，<strong>想说话的时候没人听</strong></li>
+          <li>子女异地工作，能给的是「每周一次视频 + 偶尔微信」，而孤独是<strong>每天的</strong></li>
+          <li>需求本质：不是要信息，是要「<strong>有人在</strong>」的感觉</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">📱</div><div class="card-title">场景 B · 视频未接</div><span class="card-tag">中频 · 触发式</span></div>
+        <ul class="pts">
+          <li>父母打来视频，子女在开会/通勤/睡觉，<strong>接不了又愧疚</strong></li>
+          <li>父母那头是失落：「他是不是忙得连我都顾不上了」</li>
+          <li>需求本质：未接的那一刻，<strong>有一个「像他」的存在先接住情绪</strong></li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🛠</div><div class="card-title">场景 C · 生活求助</div><span class="card-tag">中频 · 刚需</span></div>
+        <ul class="pts">
+          <li>水电费缴纳、电视不出声、手机弹窗不敢点……<strong>问别人怕麻烦，问 AI 不信任</strong></li>
+          <li>豆包也能答，但「儿子教我的」和「AI 教我的」是两种听从度</li>
+          <li>需求本质：求助要的不只是答案，是<strong>带着关系的答案</strong></li>
+        </ul>
+      </div>
+      <div class="card span-3 alt">
+        <div class="card-header"><div class="card-icon">🎯</div><div class="card-title">问题的结构性本质（这决定了产品形态）</div></div>
+        <ul class="pts">
+          <li>供需错位是<strong>时间结构</strong>的：父母的情感需求是持续的、随机的；子女的可用时间是碎片的、不可预约的。任何「要求双方同时在线」的方案（视频通话）都解不了这个错位</li>
+          <li>所以解法必然是<strong>异步的</strong>：一个 24h 在场的「分身」垫底 + 子女碎片时间的真人回复增强——这恰好是生成式对口型视频的能力区间（分钟级生成、按需调用）</li>
+          <li>定制化（声音/长相像子女本人）不是锦上添花，是<strong>整个产品成立的前提</strong>——没有「像」，它就退化成一个套壳豆包，父母没有理由打开第二次</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 02 定位与原则 ════════ -->
+  <div class="module t-orange" id="sec-pos">
+    <div class="module-head">
+      <span class="module-num">02</span>
+      <h2>产品定位与设计原则</h2>
+      <span class="module-sub">一句话定义 + 五条不可妥协的原则</span>
+    </div>
+    <div class="bento">
+      <div class="card span-3" style="border-left: 4px solid var(--orange);">
+        <div class="card-header"><div class="card-icon">💬</div><div class="card-title">一句话定义</div></div>
+        <p style="font-size:1.05rem; line-height:1.7; color:var(--text); font-weight:600;">子女用 10 分钟创建一个声音、长相、说话方式都像自己的数字分身，让异地的父母<strong style="color:var(--orange)">随时打开就能「见到孩子」</strong>——闲聊它能陪，求助它先接、子女再以「本人的脸和声音」回信。</p>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🧓</div><div class="card-title">原则 1 · 父母端零学习成本</div></div>
+        <ul class="pts">
+          <li>微信里点链接就能用，<strong>不装 App、不注册、不输密码</strong></li>
+          <li>语音优先：开口就是输入，<strong>不依赖打字</strong></li>
+          <li>大字、大按钮、单屏单任务；任何二级菜单都是设计失败</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">⏱</div><div class="card-title">原则 2 · 异步优先</div></div>
+        <ul class="pts">
+          <li>不承诺实时，承诺「<strong>一定会回</strong>」：闲聊秒回（语音+静态形象/缓存视频），真人回信分钟级</li>
+          <li>所有等待都有<strong>诚实的预期管理</strong>文案（「正在请小军回话…」）</li>
+          <li>延迟敏感链路全部走话术库缓存，按需生成只兜底</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🪞</div><div class="card-title">原则 3 · 像，是第一 KPI</div></div>
+        <ul class="pts">
+          <li>人脸一致性 &gt; 表现力 &gt; 生成速度（调研结论：老人要的是「我儿子」，不是「像我儿子的帅哥」）</li>
+          <li>声音必须复刻本人，<strong>预置音色只是未复刻前的过渡态</strong></li>
+          <li>每次形象/音色变更需子女试看确认后才下发父母端</li>
+        </ul>
+      </div>
+      <div class="card span-2">
+        <div class="card-header"><div class="card-icon">🤝</div><div class="card-title">原则 4 · 诚实边界（伦理底线，不可妥协）</div></div>
+        <ul class="pts">
+          <li><strong>不冒充真人</strong>：父母首次进入有明确告知「这是 XX 为您制作的分身助手，平时由它陪您聊，XX 本人的回复会特别标出来」</li>
+          <li>AI 代答与真人回信在父母端<strong>视觉可区分</strong>（真人回信带「💌 小军本人回复」标识）——混淆二者短期提升体验，长期摧毁信任且有伦理风险</li>
+          <li>数字人<strong>不得编造子女的个人近况</strong>（「我今天加班」这类第一人称生活叙事禁止生成），人设 prompt 强约束 + 审计抽查</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">💰</div><div class="card-title">原则 5 · 成本可算</div></div>
+        <ul class="pts">
+          <li>视频生成按秒计费（0.16~1 元/秒），<strong>缓存命中率决定单位经济模型</strong></li>
+          <li>子女端有成本可见性（本月生成了多少秒、花了多少）</li>
+          <li>任何新功能过「会不会引爆生成量」评审</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 03 用户画像 ════════ -->
+  <div class="module t-cyan" id="sec-user">
+    <div class="module-head">
+      <span class="module-num">03</span>
+      <h2>用户画像</h2>
+      <span class="module-sub">两端是两个完全不同的物种，不能用一套交互喂两群人</span>
+    </div>
+    <div class="bento">
+      <div class="card span-2">
+        <div class="card-header"><div class="card-icon">👨‍💻</div><div class="card-title">子女端 · 「小军」（创建者/管理者）</div><span class="card-tag">付费决策者</span></div>
+        <ul class="pts">
+          <li><strong>30–45 岁，异地工作</strong>，一二线城市，智能设备熟练；对父母有持续的愧疚感和「想做点什么」的意愿</li>
+          <li>时间高度碎片：能给产品的是<strong>通勤里的 10 分钟</strong>（建分身）和<strong>每天零散的 2–5 分钟</strong>（看收件箱、回留言）</li>
+          <li>付费意愿来源：花钱买「尽孝的确定性」——「我没空的时候，至少有个『我』在陪着」</li>
+          <li>敏感点：① 自己的照片/声音数据安全 ② 分身会不会「乱说话」损害自己形象 ③ 月成本是否可控</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">👵</div><div class="card-title">父母端 · 「李阿姨」（使用者）</div><span class="card-tag">留存决定者</span></div>
+        <ul class="pts">
+          <li><strong>60–80 岁</strong>，微信是唯一熟练入口，打字慢、怕点错、怕「弄坏手机」</li>
+          <li>视力/听力衰退：<strong>字要大、声要响、按钮要一目了然</strong></li>
+          <li>对 AI 无概念也无信任，但对「孩子的脸和声音」有<strong>无条件的注意力</strong></li>
+          <li>使用动机微妙：想孩子但「怕打扰他工作」——分身恰好给了一个<strong>无心理负担的出口</strong></li>
+        </ul>
+      </div>
+      <div class="card span-3 alt">
+        <div class="card-header"><div class="card-icon">⚖️</div><div class="card-title">画像推出的硬性设计约束</div></div>
+        <table class="tbl">
+          <thead><tr><th>差异维度</th><th>子女端</th><th>父母端</th></tr></thead>
+          <tbody>
+            <tr><td>入口形态</td><td>Web（桌面/手机均可），后续可 PWA</td><td class="good">微信内 H5 链接（点开即用，免装免注册）</td></tr>
+            <tr><td>交互密度</td><td>信息密集型：列表、面板、配置项</td><td class="bad">单屏单任务，禁止二级菜单与设置项</td></tr>
+            <tr><td>输入方式</td><td>键盘 + 语音皆可</td><td class="good">语音为绝对主路径，文字仅兜底</td></tr>
+            <tr><td>字号基线</td><td>常规（14–16px）</td><td class="good">正文 ≥20px，按钮 ≥56px 高，对比度 AAA</td></tr>
+            <tr><td>错误处理</td><td>报错文案 + 重试按钮</td><td class="bad">永不展示技术报错；一切失败降级为「稍后再试试」+ 自动恢复</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 04 两端信息架构 ════════ -->
+  <div class="module t-purple" id="sec-ia">
+    <div class="module-head">
+      <span class="module-num">04</span>
+      <h2>两端信息架构</h2>
+      <span class="module-sub">子女端 5 模块 · 父母端 1 屏 + 2 状态</span>
+    </div>
+    <div class="bento">
+      <div class="card span-2">
+        <div class="card-header"><div class="card-icon">🛠</div><div class="card-title">子女端（管理台）· 5 个模块</div></div>
+        <table class="tbl">
+          <thead><tr><th>模块</th><th>内容</th><th>对应现状</th></tr></thead>
+          <tbody>
+            <tr><td>① 分身工坊</td><td>上传照片→人脸检测→形象确认；声音复刻（录 30 秒）；人设编辑（称呼、口头禅、家庭背景知识）</td><td class="good">形象链路已有，声音复刻新建</td></tr>
+            <tr><td>② 话术库</td><td>预生成常用话术（问候/关心/节日）、查看缓存列表、按 provider/形象管理、模板一键批量生成</td><td class="good">已有，加模板批量</td></tr>
+            <tr><td>③ 收件箱</td><td>求助消息列表（含 AI 已代答内容）、语音/文字回复→自动转对口型视频、告警消息置顶</td><td class="bad">全新（MVP 核心增量）</td></tr>
+            <tr><td>④ 家庭管理</td><td>生成父母邀请链接/口令、查看绑定状态、每位父母独立的称呼配置（「妈」「爸」）</td><td class="meh">复用 ACCESS_CODE 机制扩展</td></tr>
+            <tr><td>⑤ 洞察与成本</td><td>每周陪伴摘要（聊了几次/聊什么主题，不含全文）、本月生成秒数与费用、provider 切换（三路已实现）</td><td class="meh">provider 已有，摘要/账单新建</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🏝</div><div class="card-title">父母端（关怀岛屿）· 极简到极致</div></div>
+        <ul class="pts">
+          <li><strong>唯一主屏</strong>：子女形象占满上半屏 + 一个大麦克风按钮，「按住说话 / 开口即聊」</li>
+          <li><strong>状态 ①「孩子在听」</strong>：闲聊态——语音秒回 + 静态形象/命中视频，底部 3 个大字话题卡（今天吃了什么 / 想你了 / 帮我个忙）</li>
+          <li><strong>状态 ②「孩子回信了」</strong>：收件态——子女真人回复生成的对口型视频，全屏播放 + 💌 本人标识 + 「再听一遍」大按钮</li>
+          <li>没有设置页、没有列表页、没有任何需要「管理」的东西——所有配置都在子女端完成后<strong>下发</strong></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 05 核心流程 ════════ -->
+  <div class="module t-green" id="sec-flow">
+    <div class="module-head">
+      <span class="module-num">05</span>
+      <h2>核心流程（5 条）</h2>
+      <span class="module-sub">蓝=父母 · 紫=AI/系统 · 绿=子女 · 黄=平台动作</span>
+    </div>
+    <div class="bento">
+      <div class="card span-3">
+        <div class="card-header"><div class="card-icon">🚀</div><div class="card-title">F1 · 子女创建分身（目标：10 分钟完成）</div><span class="card-tag">MVP</span></div>
+        <div class="flow">
+          <div class="fnode f-child"><b>上传正面照</b><small>人脸检测不过→换图指引</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-child"><b>录 30 秒声音</b><small>读引导文案，复刻音色（V1）；MVP 先选预置音色</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-child"><b>填人设卡</b><small>称呼/口头禅/家庭常识（爸妈叫什么、家在哪、忌讳话题）</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-ai"><b>预生成话术包</b><small>10 条常用问候批量入话术库（一次性成本 ~50 元）</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-child"><b>试看确认</b><small>子女亲自看一条「像不像我」，确认后才可邀请</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-sys"><b>发邀请</b><small>微信发「带口令链接」给父母</small></div>
+        </div>
+      </div>
+      <div class="card span-3">
+        <div class="card-header"><div class="card-icon">🏝</div><div class="card-title">F2 · 父母首次进入（目标：3 步内开口说上话）</div><span class="card-tag">MVP</span></div>
+        <div class="flow">
+          <div class="fnode f-parent"><b>微信点链接</b><small>口令在链接里，免输入</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-sys"><b>诚实告知页</b><small>「这是小军为您做的分身助手」+ 子女预录的一条欢迎视频（话术库）</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-parent"><b>主屏开聊</b><small>大麦克风 + 3 张话题卡兜底「不知道说啥」</small></div>
+        </div>
+        <div class="callout c-blue" style="margin-top:10px">📌 首次体验的成败手筋：<strong>欢迎视频必须是真话术</strong>（「妈，以后想我了就打开这个，我让它替我陪你聊聊」）——这一条视频在 F1 就预生成好，是父母对产品建立心智的全部依据。</div>
+      </div>
+      <div class="card span-3">
+        <div class="card-header"><div class="card-icon">💬</div><div class="card-title">F3 · 日常陪聊（高频主路径，必须秒回）</div><span class="card-tag">MVP</span></div>
+        <div class="flow">
+          <div class="fnode f-parent"><b>开口说话</b><small>ASR 转文字（dashscope）</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-ai"><b>LLM 生成回复</b><small>人设 prompt + 记忆库上下文</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-ai"><b>话术库三层命中？</b><small>命中→秒播对口型视频</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-ai"><b>未命中→流畅模式</b><small>复刻音色 TTS 秒回 + 静态形象微动效</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-sys"><b>记忆沉淀</b><small>写记忆库；情绪/健康关键词→触发 F5 告警</small></div>
+        </div>
+      </div>
+      <div class="card span-3" style="border: 1.5px solid var(--green);">
+        <div class="card-header"><div class="card-icon">💌</div><div class="card-title">F4 · 求助转真人闭环（核心差异化，产品的灵魂）</div><span class="card-tag">MVP</span></div>
+        <div class="flow">
+          <div class="fnode f-parent"><b>父母求助</b><small>「电视没声音了怎么弄」</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-ai"><b>意图识别=求助</b><small>LLM 分类：求助/闲聊/情绪</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-ai"><b>AI 先接住</b><small>给初步答案 +「我再帮你问问小军本人哈」</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-sys"><b>进子女收件箱</b><small>原文 + AI 代答内容一起推送</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-child"><b>子女语音回一条</b><small>30 秒内说完，可补充/纠正 AI 的答案</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-ai"><b>转对口型视频</b><small>子女原声直接驱动（不经 TTS），分钟级生成</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-parent"><b>父母收到「回信」</b><small>💌 本人标识 + 全屏播放 + 再听一遍</small></div>
+        </div>
+        <div class="callout c-green" style="margin-top:10px">🔑 注意工程要点：子女语音回复<strong>用原声驱动对口型（音频直接进 EMO/OmniHuman），不经过 TTS</strong>——这条链路里「声音 100% 是真的」，只有画面是生成的，体验上限远高于纯 AI 链路，且完全复用现有 speak 管线（音频 URL 换个来源而已）。</div>
+      </div>
+      <div class="card span-3">
+        <div class="card-header"><div class="card-icon">🚨</div><div class="card-title">F5 · 关怀告警（被动安全网）</div><span class="card-tag">MVP-Lite / V1 完整</span></div>
+        <div class="flow">
+          <div class="fnode f-ai"><b>触发识别</b><small>① 情绪持续低落 ② 健康不适表述（「头晕」「摔了」）③ 连续 N 天未打开</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-sys"><b>分级</b><small>紧急（健康类）→ 立即；一般（情绪/沉默）→ 当日摘要</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-child"><b>通知子女</b><small>MVP：收件箱置顶+角标；V1：微信服务号模板消息</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-child"><b>建议动作</b><small>「给妈打个真电话吧」——告警的正确出口是真人联系，不是让 AI 加倍安抚</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 06 隐私与伦理 ════════ -->
+  <div class="module t-red" id="sec-privacy">
+    <div class="module-head">
+      <span class="module-num">06</span>
+      <h2>隐私与伦理边界</h2>
+      <span class="module-sub">信任命门 · 每一条都是产品红线，不是法务装饰</span>
+    </div>
+    <div class="bento">
+      <div class="card span-2">
+        <div class="card-header"><div class="card-icon">🔒</div><div class="card-title">R1 · 子女对父母聊天的可见性（默认最小化）</div></div>
+        <table class="tbl">
+          <thead><tr><th>内容类型</th><th>子女可见性</th><th>理由</th></tr></thead>
+          <tbody>
+            <tr><td>求助类消息</td><td class="good">原文可见（进收件箱）</td><td>父母发求助的预期就是「让孩子知道」</td></tr>
+            <tr><td>告警事件</td><td class="good">事件可见（触发句可见）</td><td>安全优先级高于隐私</td></tr>
+            <tr><td>日常闲聊</td><td class="bad">全文不可见，仅每周主题摘要（「这周聊了 12 次，主要聊做饭和天气」）</td><td>父母若知道被逐句监看，将不再真实倾诉——产品核心价值随即归零</td></tr>
+            <tr><td>情绪倾诉</td><td class="meh">仅情绪趋势（低落 N 天），不见内容</td><td>给子女行动信号，不给偷窥窗口</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">📣</div><div class="card-title">R2 · 父母知情同意</div></div>
+        <ul class="pts">
+          <li>首次进入<strong>诚实告知页不可跳过</strong>：是分身助手、平时 AI 陪聊、本人回复有标识、求助会转给孩子</li>
+          <li>告知用<strong>子女的欢迎视频</strong>承载（而非协议文本）——老人不读条款，但听得懂孩子说话</li>
+          <li>「求助会让小军看到」在求助场景内<strong>二次明示</strong>（AI 回复话术里自然带出）</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🎭</div><div class="card-title">R3 · 真人/AI 可区分</div></div>
+        <ul class="pts">
+          <li>真人回信：💌 标识 +「小军本人回复」字样 + 不同入场动效</li>
+          <li>AI 代答禁用第一人称生活叙事（「我今天……」），人设 prompt 硬约束 + 上线前红队测试</li>
+          <li>节日祝福类预生成视频属「子女真实意图的预录」，标识为「小军提前为您准备的」</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🖼</div><div class="card-title">R4 · 肖像与声音授权</div></div>
+        <ul class="pts">
+          <li>只允许上传<strong>本人</strong>照片/声音，创建时勾选本人授权声明</li>
+          <li>不提供「上传他人照片」路径；人脸与账号实名一致性校验进 V2 评估</li>
+          <li>云端供应商侧（阿里/火山）的素材留存策略写入隐私说明</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🗑</div><div class="card-title">R5 · 数据生命周期</div></div>
+        <ul class="pts">
+          <li>聊天记录默认保留 90 天（记忆摘要长期保留），子女可一键全删</li>
+          <li>解绑/注销：形象、音色、话术库视频、记忆<strong>全量物理删除</strong></li>
+          <li>所有云端 key 仅存服务端（现有架构已满足）</li>
+        </ul>
+      </div>
+      <div class="card span-3 alt">
+        <div class="card-header"><div class="card-icon">⚠️</div><div class="card-title">R6 · 伦理风险的正面回答（评审时别绕开）</div></div>
+        <ul class="pts">
+          <li><strong>「这是在用 AI 替代亲情吗？」</strong>——产品立场：分身是「增量陪伴 + 真人触达的路由器」，不是替代。设计上所有告警的出口都导向「打个真电话」，F4 的高潮是真人回信而非 AI 应答。北极星指标里专设「促成真人联系次数」，若产品导致真实通话变少，即判定方向失败</li>
+          <li><strong>「老人产生情感依赖怎么办？」</strong>——MVP 期密切观察（自家试用），V1 设计每日陪聊时长软提醒；不做拟人化撩拨式运营（不主动说「我想你了」这类越界话术）</li>
+          <li><strong>「分身说错话谁负责？」</strong>——求助类答案 AI 代答必须带「我再帮你问问小军本人」的转真人兜底；医疗/金融/转账类问题硬编码拒答并直接转真人</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 07 账号与家庭模型 ════════ -->
+  <div class="module t-yellow" id="sec-account">
+    <div class="module-head">
+      <span class="module-num">07</span>
+      <h2>账号体系与家庭数据模型</h2>
+      <span class="module-sub">MVP 用口令糊、数据模型一步到位——账号可以晚，模型不能错</span>
+    </div>
+    <div class="bento">
+      <div class="card span-2">
+        <div class="card-header"><div class="card-icon">🗂</div><div class="card-title">家庭数据模型（MVP 即按此建表，避免后期迁移）</div></div>
+        <table class="tbl">
+          <thead><tr><th>实体</th><th>关键字段</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>family</td><td>id, child_code, created_at</td><td>一个家庭一条；MVP 全局就一条也按表建</td></tr>
+            <tr><td>member</td><td>id, family_id, role(child/parent), nickname(「妈」), invite_code, last_active</td><td>1 子女 : N 父母；多子女共建一个分身属 V2</td></tr>
+            <tr><td>figure</td><td>family_id, version, localImage, providers{...}</td><td>现 rhFigure 全局单例 → 挂到 family 下</td></tr>
+            <tr><td>voice</td><td>family_id, provider(cosyvoice), voice_id, sample_url, status</td><td>声音复刻产物（V1）；MVP 存预置音色名</td></tr>
+            <tr><td>speak_cache</td><td>family_id, key, text, provider, figVer, path</td><td>现话术库 → 加 family_id 维度</td></tr>
+            <tr><td>inbox_message</td><td>id, family_id, from_member, type(help/alert/leave_word), original_text, ai_reply, child_reply_audio, reply_video, status</td><td>F4/F5 的承载实体，<strong>全新</strong></td></tr>
+            <tr><td>memory / summary</td><td>family_id, member_id, ...</td><td>现记忆库 → 加家庭+成员维度；周摘要定时任务产出</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🔑</div><div class="card-title">认证策略分阶段</div></div>
+        <ul class="pts">
+          <li><strong>MVP：双口令</strong>——复用现有 ACCESS_CODE 中间件，扩展为 child_code / parent_code 两个口令、各种 30 天 cookie；链接带 code，父母零输入</li>
+          <li><strong>V1：微信身份</strong>——子女端微信扫码登录，父母端依旧「链接即身份」（链接里的 invite_code 就是父母的身份凭证，老人永远不应该见到登录页）</li>
+          <li><strong>V2：多家庭 SaaS</strong>——正式账号体系、家庭隔离审计、付费墙</li>
+        </ul>
+        <div class="callout" style="margin-top:10px">🚧 口令即身份的安全边界：链接外泄=陌生人能跟分身聊天并烧生成费。缓解：单家庭月生成额度上限 + 异常调用告警 + 一键换口令（已有机制）。MVP 自家使用可接受，<strong>对外发放前必须升级 V1 认证</strong>。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 08 功能详述 ════════ -->
+  <div class="module t-blue" id="sec-feat">
+    <div class="module-head">
+      <span class="module-num">08</span>
+      <h2>功能详述与验收标准</h2>
+      <span class="module-sub">P0=MVP 必须 · P1=V1 · P2=V2</span>
+    </div>
+    <div class="bento">
+      <div class="card span-3">
+        <div class="card-header"><div class="card-icon">🧓</div><div class="card-title">父母端功能清单</div></div>
+        <table class="tbl">
+          <thead><tr><th>编号</th><th>功能</th><th>优先级</th><th>验收标准（可测）</th></tr></thead>
+          <tbody>
+            <tr><td>P-1</td><td>链接进入与诚实告知</td><td><span class="pri p0">P0</span></td><td>微信内点链接 3 秒内可交互；告知页含子女欢迎视频；二次进入不再出现告知页直达主屏</td></tr>
+            <tr><td>P-2</td><td>语音陪聊（流畅模式）</td><td><span class="pri p0">P0</span></td><td>按住说话→松手后 ≤3s 听到回复（话术命中则视频、未命中则音频+静态形象）；连续 10 轮对话无需触屏二次操作（自动续麦）</td></tr>
+            <tr><td>P-3</td><td>话题卡兜底</td><td><span class="pri p0">P0</span></td><td>主屏常驻 3 张大字话题卡；点击即触发对应话术库视频，不走 LLM、1s 内开播</td></tr>
+            <tr><td>P-4</td><td>求助留言</td><td><span class="pri p0">P0</span></td><td>求助类消息被正确分类（验收集 ≥90% 准确）；AI 代答带「再帮你问问本人」话术；消息确认进入子女收件箱</td></tr>
+            <tr><td>P-5</td><td>收子女回信</td><td><span class="pri p0">P0</span></td><td>回信到达后主屏出现 💌 横幅；点开全屏播放对口型视频，带「小军本人回复」标识与「再听一遍」按钮；未读回信次日仍保留入口</td></tr>
+            <tr><td>P-6</td><td>大字适老化</td><td><span class="pri p0">P0</span></td><td>正文 ≥20px、主按钮高 ≥56px；全程无输入框必填、无密码、无二级菜单</td></tr>
+            <tr><td>P-7</td><td>节日/定时祝福推送</td><td><span class="pri p1">P1</span></td><td>子女预生成的节日视频按计划日期出现在父母端横幅</td></tr>
+            <tr><td>P-8</td><td>文字输入兜底</td><td><span class="pri p1">P1</span></td><td>ASR 不可用时出现大号文字输入；默认隐藏</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card span-3">
+        <div class="card-header"><div class="card-icon">👨‍💻</div><div class="card-title">子女端功能清单</div></div>
+        <table class="tbl">
+          <thead><tr><th>编号</th><th>功能</th><th>优先级</th><th>验收标准（可测）</th></tr></thead>
+          <tbody>
+            <tr><td>C-1</td><td>分身工坊：形象</td><td><span class="pri p0">P0</span></td><td>上传照片→检测→确认全流程 ≤2 分钟（生成等待除外）；检测失败有明确换图指引（现有能力，加确认步骤）</td></tr>
+            <tr><td>C-2</td><td>人设卡</td><td><span class="pri p0">P0</span></td><td>称呼/口头禅/家庭常识/禁区话题四项落入 LLM system prompt 并在对话中生效（抽测 10 例）</td></tr>
+            <tr><td>C-3</td><td>话术库管理 + 初始话术包</td><td><span class="pri p0">P0</span></td><td>10 条模板一键批量生成；列表展示/试播/删除（现有能力 + 批量）</td></tr>
+            <tr><td>C-4</td><td>收件箱</td><td><span class="pri p0">P0</span></td><td>求助/告警/留言分类展示，未读角标；展示 AI 已代答内容供子女纠正</td></tr>
+            <tr><td>C-5</td><td>语音回信 → 对口型视频</td><td><span class="pri p0">P0</span></td><td>收件箱内按住录音 ≤60s→提交后状态流转（生成中→已送达→父母已看）；子女原声直接驱动视频（不经 TTS）；失败自动重试 1 次后降级为纯语音送达</td></tr>
+            <tr><td>C-6</td><td>家庭管理与邀请</td><td><span class="pri p0">P0</span></td><td>生成/重置父母邀请链接；为每位父母设置称呼；解绑清数据</td></tr>
+            <tr><td>C-7</td><td>声音复刻</td><td><span class="pri p1">P1</span></td><td>录 30s 样本→复刻音色→试听对比→启用；CosyVoice 与火山声音复刻 2.0 双供应商评估后选一</td></tr>
+            <tr><td>C-8</td><td>周报摘要 + 成本面板</td><td><span class="pri p1">P1</span></td><td>每周主题摘要推送；本月生成秒数/费用/缓存命中率可见</td></tr>
+            <tr><td>C-9</td><td>provider 切换</td><td><span class="pri p0">P0</span></td><td>三路热切换（✅ 已实现，纳入子女端设置）</td></tr>
+            <tr><td>C-10</td><td>微信通知（服务号模板消息）</td><td><span class="pri p1">P1</span></td><td>收件箱新消息/告警触发微信通知，点击直达</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card span-3 alt">
+        <div class="card-header"><div class="card-icon">⚙️</div><div class="card-title">系统级功能</div></div>
+        <table class="tbl">
+          <thead><tr><th>编号</th><th>功能</th><th>优先级</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>S-1</td><td>意图分类器</td><td><span class="pri p0">P0</span></td><td>每轮父母消息过 LLM 分类（闲聊/求助/情绪/健康风险），决定走 F3 还是 F4/F5；用现有 qwen3-max 加分类 prompt，不引入新模型</td></tr>
+            <tr><td>S-2</td><td>降级链条</td><td><span class="pri p0">P0</span></td><td>视频失败→语音；语音失败→文字；全程不让父母看到报错（沿用现有 videoError 机制，父母端文案另写）</td></tr>
+            <tr><td>S-3</td><td>生成额度护栏</td><td><span class="pri p0">P0</span></td><td>单家庭月生成秒数上限（默认 300s/月，子女端可调），超限只走缓存+语音并提示子女</td></tr>
+            <tr><td>S-4</td><td>内容安全</td><td><span class="pri p1">P1</span></td><td>AI 回复过安全词表（医疗/金融/转账拒答转真人）；上线前红队测试 50 例</td></tr>
+            <tr><td>S-5</td><td>周摘要定时任务</td><td><span class="pri p1">P1</span></td><td>每周日跑批：聊天主题聚类→摘要写入子女端</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 09 技术方案与现状 ════════ -->
+  <div class="module t-green" id="sec-tech">
+    <div class="module-head">
+      <span class="module-num">09</span>
+      <h2>技术方案：现状复用 × 新建缺口</h2>
+      <span class="module-sub">基于 2026-06-11 main 分支（Vue 3 工程 + 三路 provider 已合入）</span>
+    </div>
+    <div class="bento">
+      <div class="card span-2">
+        <div class="card-header"><div class="card-icon">♻️</div><div class="card-title">现有资产复用表（这就是「考虑现状」的答案）</div></div>
+        <table class="tbl">
+          <thead><tr><th>现有能力</th><th>状态</th><th>两端版中的角色</th></tr></thead>
+          <tbody>
+            <tr><td>三路视频 provider（emo/omnihuman/seedance + 热切换）</td><td class="good">✅ 已上线</td><td>F4 回信与话术库生成的引擎；provider 实测后定父母端默认脸</td></tr>
+            <tr><td>话术库三层命中 + figVer/provider 双隔离</td><td class="good">✅ 已上线</td><td>F3 秒回的成本核心；加 family_id 维度</td></tr>
+            <tr><td>形象上传/检测/oss 刷新链路</td><td class="good">✅ 已上线</td><td>分身工坊 C-1 的全部底层</td></tr>
+            <tr><td>ASR 三 provider（在线用 dashscope）</td><td class="good">✅ 已上线</td><td>父母端语音输入直接用</td></tr>
+            <tr><td>Vue 3 + Pinia + Vite 工程</td><td class="good">✅ 已上线</td><td>加 vue-router：/child 与 /parent 两入口共用 stores/composables</td></tr>
+            <tr><td>记忆库（SQLite + 向量检索）</td><td class="good">✅ 已上线</td><td>父母对话记忆 + 周摘要的数据源；加成员维度</td></tr>
+            <tr><td>ACCESS_CODE 口令中间件</td><td class="good">✅ 已上线</td><td>MVP 双口令认证的基座</td></tr>
+            <tr><td>hk 服务器 + caddy + systemd 部署</td><td class="good">✅ 已上线</td><td>MVP 直接部署位；线上已是 Vue 版</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🧱</div><div class="card-title">新建缺口（按工程量排序）</div></div>
+        <ul class="pts">
+          <li><strong>① 收件箱 + 异步消息</strong>（中）：inbox_message 表 + 子女端 UI + 状态机（待答/生成中/已送达/已看）</li>
+          <li><strong>② 家庭数据模型改造</strong>（中）：rhFigure/话术库/记忆从全局单例改 per-family；MVP 单家庭也按表建，避免二次迁移</li>
+          <li><strong>③ 父母端页面</strong>（中）：/parent 路由 + 适老化大字主题；复用 AvatarStage/音频队列/录音 composables</li>
+          <li><strong>④ 意图分类器</strong>（小）：qwen3-max 分类 prompt + 阈值调优</li>
+          <li><strong>⑤ 子女原声驱动回信</strong>（小）：speak 管线已支持任意 audioUrl，加「上传录音→直接当驱动音频」入口</li>
+          <li><strong>⑥ 声音复刻</strong>（V1，中）：CosyVoice 复刻 vs 火山声音复刻 2.0 选型 + 录音引导 UI</li>
+          <li><strong>⑦ 微信服务号通知</strong>（V1，中）：模板消息 + 网页授权</li>
+        </ul>
+      </div>
+      <div class="card span-3 alt">
+        <div class="card-header"><div class="card-icon">🗺</div><div class="card-title">两端架构总览</div></div>
+        <div class="flow">
+          <div class="fnode f-parent"><b>父母端 /parent</b><small>微信 H5 · 大字主题 · 语音主交互</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-sys"><b>Express /api/*</b><small>口令/家庭中间件 · 意图分类 · 收件箱 · 额度护栏</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-ai"><b>能力层</b><small>qwen3-max / CosyVoice(+复刻) / ASR / 记忆库 / 话术库缓存</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode f-ai"><b>视频 provider</b><small>emo · omnihuman · seedance（可插拔，已实现）</small></div>
+          <div class="farrow">←</div>
+          <div class="fnode f-child"><b>子女端 /child</b><small>分身工坊 · 话术库 · 收件箱 · 家庭管理 · 成本</small></div>
+        </div>
+        <div class="flow-legend">单仓单服务不变：两端是同一 Vue 工程的两个路由入口 + 同一 Express 的角色化中间件——MVP 不引入任何新基础设施</div>
+      </div>
+      <div class="card span-3">
+        <div class="card-header"><div class="card-icon">🎬</div><div class="card-title">视频 provider 策略（沿用调研结论，实测仍是前置）</div></div>
+        <ul class="pts">
+          <li><strong>日常回信/话术库：emo 基线 → OmniHuman 候选</strong>——三路实测（等火山 key）后按「人脸一致性 &gt; 口型 &gt; 成本」定父母端默认；切换零成本（已实现热切换）</li>
+          <li><strong>节庆高表现力内容：Seedance 2.0</strong>——生日/春节祝福这类一次生成反复播放的预录内容</li>
+          <li>实测增加两端版专属评测项：<strong>① 子女原声驱动效果</strong>（F4 用真录音不用 TTS）<strong>② 老人盲评「像不像」</strong>（直接找自家父母看）</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 10 非功能 ════════ -->
+  <div class="module t-purple" id="sec-nfr">
+    <div class="module-head">
+      <span class="module-num">10</span>
+      <h2>非功能需求</h2>
+      <span class="module-sub">成本 · 时延 · 安全 · 可用性</span>
+    </div>
+    <div class="bento">
+      <div class="card span-2">
+        <div class="card-header"><div class="card-icon">💰</div><div class="card-title">单家庭月成本模型（设计目标：≤50 元/家庭/月）</div></div>
+        <table class="tbl">
+          <thead><tr><th>成本项</th><th>假设</th><th>月成本估算</th></tr></thead>
+          <tbody>
+            <tr><td>LLM（qwen3-max）</td><td>30 轮/天 × 30 天</td><td>≈ 3–8 元</td></tr>
+            <tr><td>TTS + ASR</td><td>同上频次</td><td>≈ 2–5 元</td></tr>
+            <tr><td>话术库预生成</td><td>初始 10 条 + 每月增补 5 条 × 10s</td><td>一次性 ~50 元 + 月增 8–50 元（按 provider 0.16–1 元/秒）</td></tr>
+            <tr><td>真人回信视频（F4）</td><td>15 条/月 × 20s</td><td class="meh">48 元（EMO 0.16 元/s）～ 300 元（火山 1 元/s）</td></tr>
+            <tr><td colspan="2"><strong>结论</strong></td><td class="bad">F4 是成本大头且按 provider 差 6 倍——这就是 S-3 额度护栏 + provider 实测必须前置的原因；EMO 价位下模型成立，火山价位需限额运营</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">⏱</div><div class="card-title">时延预算与预期管理</div></div>
+        <ul class="pts">
+          <li>F3 陪聊：松手→出声 <strong>≤3s</strong>（P95）；命中视频 ≤1.5s 开播</li>
+          <li>F4 回信生成：提交→送达 <strong>≤5 分钟</strong>（P90），超 10 分钟自动降级纯语音送达并通知子女</li>
+          <li>父母端所有等待态都有拟人文案（「正在请小军回话…」），<strong>绝不出现进度条/百分比</strong>这类技术物</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🛡</div><div class="card-title">安全与合规</div></div>
+        <ul class="pts">
+          <li>沿用：key 全在服务端、口令中间件、gitignore 数据隔离</li>
+          <li>新增：父母语音/聊天数据属敏感个人信息，部署文档写明存储位置与保留期；对外运营前过个保法合规审查</li>
+          <li>生成内容审核：依赖供应商侧审核 + 自有安全词表（S-4）</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">♿️</div><div class="card-title">可用性底线</div></div>
+        <ul class="pts">
+          <li>父母端：iOS/安卓微信内置浏览器为第一兼容目标（X5 内核音频自动播放策略要专项测）</li>
+          <li>弱网：视频加载 &gt;3s 先放语音；所有视频本地缓存过的优先</li>
+          <li>误触保护：清空/解绑类操作只在子女端且二次确认</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">📊</div><div class="card-title">北极星与验证指标</div></div>
+        <ul class="pts">
+          <li><strong>北极星：父母周主动打开次数</strong>（≥5 次/周算成立）</li>
+          <li>F4 闭环时长（父母求助→收到回信）P90 ≤ 4 小时（含子女响应）</li>
+          <li><strong>促成真人联系次数</strong>（告警→真实通话）——伦理对齐指标</li>
+          <li>反指标：若真实视频通话频次下降 → 触发方向复盘</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 11 里程碑 ════════ -->
+  <div class="module t-orange" id="sec-ms">
+    <div class="module-head">
+      <span class="module-num">11</span>
+      <h2>里程碑</h2>
+      <span class="module-sub">每个阶段有明确的「不做什么」</span>
+    </div>
+    <div class="bento">
+      <div class="card alt">
+        <div class="card-header"><div class="card-icon">✅</div><div class="card-title">M0 · 已完成（2026-06-11）</div></div>
+        <ul class="pts">
+          <li>单端 Demo 全链路（聊天/形象/话术库/ASR）</li>
+          <li>三路视频 provider + 热切换</li>
+          <li>前端 Vue 3 工程化</li>
+          <li>hk 线上部署 + 口令保护</li>
+        </ul>
+      </div>
+      <div class="card" style="border: 1.5px solid var(--orange);">
+        <div class="card-header"><div class="card-icon">🚧</div><div class="card-title">M1 · 两端 MVP（2 周）</div></div>
+        <ul class="pts">
+          <li>/parent + /child 双入口、双口令、适老化主题</li>
+          <li>家庭数据模型建表（含迁移现有单例数据）</li>
+          <li>收件箱 + F4 求助闭环（子女原声驱动回信）</li>
+          <li>意图分类器 + 额度护栏 + 初始话术包</li>
+          <li><strong>不做</strong>：账号体系、微信通知（收件箱角标顶替）、声音复刻、周摘要</li>
+          <li>🎯 出口条件：自家真实使用 2 周，父母周主动打开 ≥5 次</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">📦</div><div class="card-title">M2 · V1（MVP 验证通过后 3–4 周）</div></div>
+        <ul class="pts">
+          <li>微信扫码登录（子女端）+ 服务号模板消息通知</li>
+          <li>声音复刻（C-7）+ 节日祝福计划（P-7）</li>
+          <li>周摘要 + 成本面板 + 内容安全红队</li>
+          <li>邀请 3–5 个朋友家庭内测</li>
+        </ul>
+      </div>
+      <div class="card span-3">
+        <div class="card-header"><div class="card-icon">🔭</div><div class="card-title">M3 · V2（视 V1 数据决定，此处只立靶不排期）</div></div>
+        <ul class="pts">
+          <li>多家庭 SaaS 化：正式账号、付费（订阅 or 按生成量）、多子女共管一位父母</li>
+          <li>主动关怀：定时问候计划、用药提醒（进入健康域需重新评估合规）</li>
+          <li>父母端小程序化（若 H5 留存数据证明微信内打开摩擦仍偏高）</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 12 风险 ════════ -->
+  <div class="module t-red" id="sec-risk">
+    <div class="module-head">
+      <span class="module-num">12</span>
+      <h2>风险与开放问题</h2>
+      <span class="module-sub">按「打击面 × 概率」排序，每条带缓解动作</span>
+    </div>
+    <div class="bento">
+      <div class="card span-3">
+        <table class="tbl">
+          <thead><tr><th>#</th><th>风险</th><th>等级</th><th>缓解 / 验证动作</th></tr></thead>
+          <tbody>
+            <tr><td>R-1</td><td>「像不像」不达标——三路 provider 的人脸一致性全都过不了老人盲评</td><td><span class="pri p0">致命</span></td><td>火山 key 到位后立即三路实测 + 自家父母盲评；全不达标则产品转「声音为主、形象为辅」形态再评估</td></tr>
+            <tr><td>R-2</td><td>父母不打开第二次（新鲜感产品）</td><td><span class="pri p0">致命</span></td><td>MVP 自家 2 周真实使用就是为了验这条；观察打开动机分布（想孩子 / 求助 / 习惯）</td></tr>
+            <tr><td>R-3</td><td>F4 闭环断在子女侧（子女不回 / 回得慢）</td><td><span class="pri p1">高</span></td><td>AI 代答先保底「有回应」；超 4h 未回自动追加提醒；回信操作压到 30 秒内可完成</td></tr>
+            <tr><td>R-4</td><td>真人照片触发供应商内容审核（Seedance 已知限制，EMO/OmniHuman 待测）</td><td><span class="pri p1">高</span></td><td>实测列入专项；被拦时引导换正面照 / 切 provider；保底 EMO（现网已跑通真人照片）</td></tr>
+            <tr><td>R-5</td><td>成本失控（F4 高频 + 火山价位）</td><td><span class="pri p1">高</span></td><td>S-3 额度护栏 P0 上线；成本面板透明化；provider 按实测性价比定默认</td></tr>
+            <tr><td>R-6</td><td>微信内 H5 音视频自动播放受限（X5 内核策略）</td><td><span class="pri p1">中</span></td><td>MVP 第一周即做微信真机专项测试；必要时改「点击播放」交互</td></tr>
+            <tr><td>R-7</td><td>老人情感依赖 / 伦理舆情</td><td><span class="pri p2">中</span></td><td>R6 伦理设计落地（真人标识/导向真电话/不撩拨）；对外发布前准备伦理立场说明</td></tr>
+            <tr><td>R-8</td><td>口令外泄烧额度（MVP 期）</td><td><span class="pri p2">低</span></td><td>额度护栏 + 异常告警 + 一键换口令；对外前升级 V1 认证</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card span-3 alt">
+        <div class="card-header"><div class="card-icon">❓</div><div class="card-title">开放问题（评审会上要拍板的）</div></div>
+        <ul class="pts">
+          <li><strong>Q1</strong>：MVP 期父母端要不要给「主动留言给孩子」（非求助的想念留言）？——倾向给（实现成本＝求助同链路），但收件箱要区分类型避免子女疲劳</li>
+          <li><strong>Q2</strong>：AI 代答求助的答案质量边界——错答的代价由「转真人兜底」吃住是否足够？是否需要「AI 没把握就不答只转」模式开关？</li>
+          <li><strong>Q3</strong>：一位老人被多个子女各建一个分身（多对一）是 V2 议题，但 MVP 数据模型要不要预留 member 多 child？——倾向预留字段不做功能</li>
+          <li><strong>Q4</strong>：声音复刻选 CosyVoice（同栈少一个供应商）还是火山声音复刻 2.0（宣传相似度 97.5%）？——V1 前出对比实测，与视频 provider 实测合并做</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="source-footer">
+    <b>文档信息</b> · 版本 v2.0-draft · 2026-06-12 · 作者：产品 + Claude · 评审状态：待评审<br>
+    <b>上游输入</b> · <a href="../../课件/9-数字分身/数字人方案调研-Seedance-OmniHuman-EMO.html">三路视频方案调研报告（2026-06-10）</a> · 两端方向会议结论（2026-06-11）· 现有单端 PRD（docs/PRD.md，本文档取代其产品部分，技术附录仍有效）<br>
+    <b>下游产物</b> · 高保真设计稿：docs/两端高保真设计稿.html（基于本 PRD 产出）· 工程任务拆解（M1 开工时出）<br>
+    <b>配套现状</b> · 代码 main@6140679（Vue 3 工程 + 三路 provider）· 线上 https://twin.chengbei.org
+  </div>
+
+</div>
+
+<script>
+document.querySelectorAll('.nav-tag').forEach(tag => {
+  tag.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tag').forEach(t => t.classList.remove('active'));
+    tag.classList.add('active');
+  });
+});
+const sections = document.querySelectorAll('[id^="sec-"]');
+const navTags = document.querySelectorAll('.nav-tag');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      navTags.forEach(t => t.classList.toggle('active', t.getAttribute('href') === '#' + entry.target.id));
+    }
+  });
+}, { rootMargin: '-20% 0px -60% 0px' });
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

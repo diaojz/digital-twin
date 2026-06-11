@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数字分身两端版 · 高保真设计稿 v1.0</title>
+<style>
+/* ============================================================
+   设计 token — 沿用「关怀岛屿」体系，父母端/子女端共享色板
+   ============================================================ */
+:root{
+  /* 主紫色系（品牌核心） */
+  --p1:#8b6cf0;--p2:#a78bfa;--p3:#c89bf0;--pink:#e9789f;
+  /* 墨色文字 */
+  --ink:#3a3550;--ink-soft:#6e6889;--ink-faint:#a39fb8;
+  /* 卡片/毛玻璃 */
+  --card:rgba(255,255,255,.72);--glass:rgba(255,255,255,.55);
+  --line:rgba(140,120,210,.14);
+  /* 语义色 */
+  --green:#37b87c;--orange:#e6975a;--red:#e05656;
+  /* 金色——真人回信专用 */
+  --gold:#c9860a;--gold-bg:#fff8e6;--gold-border:#f0c040;
+  /* 阴影 */
+  --shadow:0 10px 30px rgba(124,92,219,.12);
+  --shadow-sm:0 4px 14px rgba(124,92,219,.10);
+  /* 子女端底色略素净 */
+  --child-bg:linear-gradient(160deg,#d4c7f2,#dfd3f0 40%,#ecdbe8);
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  color:var(--ink);
+  background:#f0ecf8;
+  padding:40px 24px 80px;
+  min-height:100vh;
+}
+
+/* ============================================================
+   页面头部
+   ============================================================ */
+.doc-header{
+  max-width:1100px;margin:0 auto 48px;
+  background:rgba(255,255,255,.82);border-radius:20px;
+  padding:28px 32px;
+  box-shadow:var(--shadow);
+  border:1px solid rgba(139,108,240,.18);
+}
+.doc-header .doc-kicker{
+  font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--p1);margin-bottom:10px;font-family:monospace;
+}
+.doc-header h1{font-size:22px;font-weight:800;color:#3a2f6a;margin-bottom:6px;}
+.doc-header .doc-sub{font-size:13px;color:var(--ink-soft);line-height:1.7;}
+
+/* 图例 */
+.legend-bar{
+  display:flex;gap:20px;flex-wrap:wrap;margin-top:18px;padding-top:18px;
+  border-top:1px solid var(--line);
+}
+.legend-item{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-soft);}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex:none;}
+.l-ai{background:var(--p1);}
+.l-real{background:var(--gold);}
+.l-alert{background:var(--red);}
+.l-ok{background:var(--green);}
+
+/* ============================================================
+   端分区标题
+   ============================================================ */
+.section-title{
+  max-width:1100px;margin:0 auto 20px;
+  font-size:17px;font-weight:800;color:#3a2f6a;
+  display:flex;align-items:center;gap:10px;
+}
+.section-title::before{
+  content:'';display:block;width:4px;height:20px;border-radius:2px;
+  background:linear-gradient(180deg,var(--p1),var(--p2));
+}
+.section-note{
+  max-width:1100px;margin:-10px auto 24px;
+  font-size:12px;color:var(--ink-soft);
+  background:rgba(139,108,240,.06);border-radius:10px;padding:8px 14px;
+  border-left:3px solid var(--p2);
+}
+
+/* ============================================================
+   手机壳（沿用基准稿，父母端稍暖，子女端略深）
+   ============================================================ */
+.phones-row{
+  display:flex;gap:28px;flex-wrap:wrap;justify-content:center;
+  max-width:1100px;margin:0 auto 56px;
+}
+.phone-col{display:flex;flex-direction:column;align-items:center;gap:10px;}
+.phone-label{font-size:12px;font-weight:700;color:var(--ink-soft);letter-spacing:.3px;}
+
+.phone{width:340px;height:724px;border-radius:42px;flex:none;
+  background:linear-gradient(160deg,#d9c9f5,#e7d6f3 40%,#f3d9e8);padding:11px;
+  box-shadow:0 30px 70px rgba(90,60,170,.28),inset 0 0 0 2px rgba(255,255,255,.4);
+  position:relative;}
+.phone.child{
+  background:var(--child-bg);
+}
+.screen{width:100%;height:100%;border-radius:32px;overflow:hidden;position:relative;
+  background:linear-gradient(165deg,#cdbdf2,#dcc8ee 38%,#efd5e6 78%,#f6dbe6);}
+/* 子女端屏幕底色偏素净（工作台感） */
+.screen.child-screen{
+  background:linear-gradient(165deg,#c8bce8,#d5c6e4 40%,#e4d2e0 75%,#ede0e9);
+}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:26px;
+  background:rgba(60,40,110,.18);border-radius:0 0 16px 16px;z-index:50;}
+.statusbar{position:absolute;top:0;left:0;right:0;height:40px;z-index:40;display:flex;align-items:center;
+  justify-content:space-between;padding:8px 22px 0;font-size:12px;font-weight:600;color:#5a4b86;}
+.scrn-tag{position:absolute;top:11px;left:11px;z-index:60;background:rgba(139,108,240,.92);color:#fff;
+  font-size:10px;font-weight:700;padding:3px 10px;border-radius:0 0 12px 0;}
+
+.page{position:absolute;inset:0;display:flex;flex-direction:column;padding:46px 16px 18px;overflow:hidden;}
+
+/* ============================================================
+   基础控件（继承基准稿）
+   ============================================================ */
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;flex:none;}
+.topbar .title{font-size:16px;font-weight:700;color:#4a3f70;display:flex;align-items:center;gap:5px;}
+.iconbtn{width:36px;height:36px;border-radius:50%;background:var(--glass);border:1px solid rgba(255,255,255,.6);
+  display:flex;align-items:center;justify-content:center;font-size:15px;color:#6a5aa0;cursor:pointer;
+  box-shadow:var(--shadow-sm);flex:none;}
+
+.card{background:var(--card);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.55);
+  border-radius:18px;padding:6px 14px;box-shadow:var(--shadow-sm);}
+.seg{font-size:12px;color:var(--p1);font-weight:700;margin:14px 2px 8px;letter-spacing:.3px;}
+.seg:first-child{margin-top:2px;}
+.row{display:flex;align-items:center;gap:11px;padding:12px 2px;border-bottom:1px solid var(--line);}
+.row:last-child{border-bottom:none;}
+.row .ri{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:17px;flex:none;background:linear-gradient(160deg,#efe6ff,#fbe7f0);}
+.row .rt{flex:1;min-width:0;}
+.row .rt .t1{font-size:13.5px;font-weight:600;color:#4a3f70;}
+.row .rt .t2{font-size:11px;color:var(--ink-faint);margin-top:1px;}
+.row .rr{font-size:12px;color:var(--ink-soft);}
+.pick{font-size:12px;padding:5px 12px;border-radius:11px;background:rgba(139,108,240,.12);color:var(--p1);font-weight:700;cursor:pointer;}
+.scroll{flex:1;overflow-y:auto;scrollbar-width:none;}
+.scroll::-webkit-scrollbar{display:none;}
+
+.btn{display:block;width:100%;text-align:center;padding:13px;border-radius:15px;border:none;
+  background:linear-gradient(90deg,var(--p1),var(--p2));color:#fff;font-size:14px;font-weight:700;
+  cursor:pointer;box-shadow:var(--shadow);margin-top:10px;}
+.btn.ghost{background:rgba(255,255,255,.7);color:var(--p1);box-shadow:var(--shadow-sm);}
+.btn.sm{padding:9px 13px;font-size:12.5px;border-radius:13px;margin-top:0;}
+.btn.danger{background:linear-gradient(90deg,#e05656,#f07878);}
+
+/* ============================================================
+   数字人舞台（基准稿核心组件）
+   ============================================================ */
+.stage{position:relative;width:100%;flex:none;border-radius:24px;overflow:hidden;margin-bottom:10px;
+  background:radial-gradient(circle at 70% 18%,rgba(255,240,200,.5),transparent 45%),
+    linear-gradient(170deg,#b7a4ec,#c9b0ec 40%,#e6c4e0 75%,#f0cfdf);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.5),0 8px 24px rgba(124,92,219,.16);
+  display:flex;align-items:flex-end;justify-content:center;transition:box-shadow .3s;}
+.stage .moon{position:absolute;left:22px;top:24px;font-size:28px;filter:drop-shadow(0 2px 8px rgba(255,230,160,.6));z-index:2;}
+.stage .lighthouse{position:absolute;right:20px;top:110px;font-size:22px;opacity:.65;}
+.star{position:absolute;border-radius:50%;background:#fff;box-shadow:0 0 6px #fff;animation:tw 3s infinite;}
+@keyframes tw{0%,100%{opacity:.3}50%{opacity:.95}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+
+/* 形象占位 */
+.avatar{position:relative;animation:float 6s infinite;z-index:1;
+  box-shadow:0 12px 30px rgba(120,80,180,.3);
+  display:flex;align-items:flex-start;justify-content:center;
+  border-radius:50% 50% 46% 46%/40% 40% 60% 60%;
+  background:radial-gradient(circle at 50% 30%,#f6e2d2,#e9c5b0 55%,transparent 70%),
+    linear-gradient(180deg,#cbb0ec,#b9a0e0);}
+.avatar .face{filter:drop-shadow(0 6px 12px rgba(120,80,180,.25));}
+.avatar-tag{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.62);
+  padding:4px 14px;border-radius:14px;font-weight:700;color:#4a3f70;font-size:12px;z-index:6;}
+
+/* 状态药丸 */
+.statepill{position:absolute;top:14px;right:14px;font-size:11px;font-weight:700;color:#fff;
+  padding:3px 11px;border-radius:12px;background:var(--p2);z-index:7;}
+.statepill.listen{background:var(--green)}.statepill.think{background:var(--orange)}
+.statepill.gen{background:var(--p1)}.statepill.speak{background:var(--p1)}
+
+/* 状态光环 */
+.stage.s-idle{box-shadow:inset 0 0 0 2px rgba(255,255,255,.5),0 0 0 3px rgba(167,139,250,.5),0 8px 24px rgba(124,92,219,.16)}
+.stage.s-listen{box-shadow:inset 0 0 0 2px rgba(255,255,255,.5),0 0 0 3px var(--green),0 0 22px rgba(55,184,124,.45)}
+.stage.s-think{box-shadow:inset 0 0 0 2px rgba(255,255,255,.5),0 0 0 3px var(--orange),0 0 22px rgba(230,151,90,.45)}
+.stage.s-speak{box-shadow:inset 0 0 0 2px rgba(255,255,255,.5),0 0 0 3px var(--p1),0 0 26px rgba(139,108,240,.5)}
+
+/* 声波 */
+.mic-zone{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;z-index:6;}
+.wave{display:flex;align-items:center;gap:3px;}
+.wave i{width:3px;border-radius:3px;background:rgba(255,255,255,.85);animation:wv 1s infinite ease-in-out;}
+.wave i:nth-child(1){height:10px;animation-delay:0s}.wave i:nth-child(2){height:18px;animation-delay:.15s}
+.wave i:nth-child(3){height:26px;animation-delay:.3s}.wave i:nth-child(4){height:16px;animation-delay:.45s}
+.wave i:nth-child(5){height:9px;animation-delay:.6s}
+@keyframes wv{0%,100%{transform:scaleY(.5)}50%{transform:scaleY(1)}}
+
+/* 大麦克风 */
+.bigmic{width:62px;height:62px;border-radius:50%;
+  background:linear-gradient(160deg,var(--p1),var(--p2));
+  display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;cursor:pointer;
+  box-shadow:0 8px 22px rgba(139,108,240,.5),0 0 0 6px rgba(255,255,255,.25);}
+
+/* ============================================================
+   父母端专用样式（适老化：大字、大按钮、低密度）
+   ============================================================ */
+
+/* 父母端——舞台更高，占上半屏 */
+.stage-parent{height:310px;}
+.avatar-parent{width:170px;height:250px;font-size:80px;margin-bottom:0;}
+.avatar-parent .face{font-size:80px;margin-top:22px;}
+
+/* 父母端实时字幕条 */
+.subtitle-bar{
+  background:rgba(255,255,255,.82);border-radius:14px;padding:12px 16px;
+  font-size:18px;font-weight:600;color:#4a3f70;line-height:1.5;
+  margin-bottom:10px;flex:none;min-height:52px;
+  border:1px solid rgba(139,108,240,.18);
+}
+.subtitle-bar .sub-label{font-size:11px;color:var(--ink-faint);font-weight:400;margin-bottom:2px;}
+
+/* 父母端大话题卡 */
+.topic-cards{display:flex;flex-direction:column;gap:8px;flex:none;margin-bottom:10px;}
+.topic-card{
+  background:rgba(255,255,255,.75);border:1.5px solid rgba(139,108,240,.2);
+  border-radius:16px;padding:14px 18px;
+  font-size:20px;font-weight:700;color:#4a3f70;
+  cursor:pointer;text-align:center;
+  box-shadow:var(--shadow-sm);
+}
+.topic-card:active{background:rgba(139,108,240,.1);}
+
+/* 父母端超大主按钮 */
+.bigbtn{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  width:100%;min-height:68px;border-radius:22px;border:none;
+  background:linear-gradient(135deg,var(--p1),var(--p2));
+  color:#fff;font-size:21px;font-weight:800;cursor:pointer;
+  box-shadow:0 8px 24px rgba(139,108,240,.45);
+  margin-top:auto;flex:none;
+}
+.bigbtn .bmic{font-size:28px;}
+.bigbtn.listen{background:linear-gradient(135deg,#37b87c,#5fcf95);}
+
+/* 父母端——欢迎/告知页 */
+.tell-page{padding:46px 20px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.tell-avatar{
+  width:88px;height:88px;border-radius:50%;
+  background:radial-gradient(circle at 50% 40%,#f6e2d2,#e9c5b0 55%,transparent 70%),
+    linear-gradient(180deg,#cbb0ec,#b9a0e0);
+  display:flex;align-items:center;justify-content:center;
+  font-size:44px;box-shadow:0 8px 20px rgba(120,80,180,.3);
+  margin-bottom:12px;flex:none;
+}
+.tell-title{font-size:20px;font-weight:800;color:#4a3f70;margin-bottom:8px;line-height:1.4;}
+.tell-video-card{
+  width:100%;background:rgba(255,255,255,.75);border-radius:18px;
+  padding:14px;border:1px solid rgba(139,108,240,.18);
+  box-shadow:var(--shadow-sm);margin-bottom:14px;flex:none;
+}
+.tell-video-thumb{
+  width:100%;height:110px;border-radius:12px;
+  background:linear-gradient(160deg,#b7a4ec,#e6c4e0);
+  display:flex;align-items:center;justify-content:center;
+  font-size:42px;margin-bottom:8px;position:relative;
+}
+.tell-video-thumb .play-btn{
+  width:52px;height:52px;border-radius:50%;
+  background:rgba(255,255,255,.92);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;box-shadow:0 4px 12px rgba(120,80,180,.35);
+}
+.tell-video-label{font-size:14px;font-weight:700;color:#4a3f70;}
+.tell-points{width:100%;text-align:left;margin-bottom:14px;flex:none;}
+.tell-point{
+  font-size:19px;font-weight:600;color:#4a3f70;
+  padding:10px 14px;border-bottom:1px solid rgba(139,108,240,.12);
+  line-height:1.5;display:flex;align-items:center;gap:10px;
+}
+.tell-point:last-child{border-bottom:none;}
+.tell-point .tp-icon{font-size:22px;flex:none;}
+
+/* 父母端——求助转达态 */
+.chat-parent{flex:1;display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding:2px 2px 6px;scrollbar-width:none;}
+.chat-parent::-webkit-scrollbar{display:none;}
+.msg-parent{max-width:88%;padding:14px 18px;border-radius:18px;font-size:19px;font-weight:600;line-height:1.55;}
+.msg-parent.ai{align-self:flex-start;background:rgba(255,255,255,.82);color:#4a3f70;border-bottom-left-radius:5px;box-shadow:var(--shadow-sm);}
+.msg-parent.me{align-self:flex-end;background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;border-bottom-right-radius:5px;}
+.msg-status{font-size:13px;color:var(--green);font-weight:600;text-align:center;margin-top:4px;
+  display:flex;align-items:center;justify-content:flex-end;gap:4px;padding-right:4px;}
+
+/* 父母端——收到回信全屏态 */
+.letter-page{padding:46px 18px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.letter-title{font-size:22px;font-weight:800;color:#4a3f70;margin-bottom:14px;}
+.letter-video-card{
+  width:100%;background:rgba(255,255,255,.78);border-radius:20px;
+  padding:14px;border:2px solid var(--gold-border);
+  box-shadow:0 8px 24px rgba(201,134,10,.18);margin-bottom:14px;
+  flex:none;
+}
+.letter-video-thumb{
+  width:100%;height:160px;border-radius:14px;
+  background:linear-gradient(160deg,#b7a4ec,#e6c4e0);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;position:relative;overflow:hidden;
+}
+.letter-video-thumb .lv-duration{
+  position:absolute;bottom:8px;right:10px;
+  background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;
+  padding:2px 8px;border-radius:8px;
+}
+.real-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--gold-bg);border:1.5px solid var(--gold-border);border-radius:12px;
+  padding:5px 14px;font-size:13px;font-weight:800;color:var(--gold);
+  margin-bottom:10px;
+}
+.letter-btns{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:auto;}
+.letter-btns .bigbtn{margin-top:0;}
+.letter-btns .bigbtn.outline{
+  background:rgba(255,255,255,.75);color:var(--p1);
+  box-shadow:0 4px 14px rgba(139,108,240,.2);
+  border:2px solid rgba(139,108,240,.35);
+}
+
+/* ============================================================
+   子女端专用样式（管理台：正常密度，信息丰富）
+   ============================================================ */
+.panel-h{font-size:16px;font-weight:800;color:#4a3f70;margin-bottom:2px;}
+.panel-s{font-size:11px;color:var(--ink-faint);margin-bottom:10px;}
+
+/* 子女端——分身工坊各段卡片 */
+.workshop-card{
+  background:var(--card);backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.55);
+  border-radius:18px;padding:14px;
+  box-shadow:var(--shadow-sm);margin-bottom:10px;
+}
+.wc-header{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.wc-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;}
+.wc-icon.purple{background:linear-gradient(160deg,#efe6ff,#fbe7f0);}
+.wc-icon.green{background:#d6f0e4;}
+.wc-icon.orange{background:#fff0e0;}
+.wc-title{font-size:13.5px;font-weight:700;color:#4a3f70;flex:1;}
+.wc-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;
+  background:rgba(55,184,124,.15);color:var(--green);}
+.wc-badge.v1{background:rgba(139,108,240,.12);color:var(--p1);}
+
+/* 形象预览 */
+.fig-preview{
+  width:100%;height:72px;border-radius:12px;
+  background:linear-gradient(160deg,#b7a4ec,#e6c4e0);
+  display:flex;align-items:center;padding:0 14px;gap:12px;
+  margin-bottom:8px;
+}
+.fig-face{font-size:40px;}
+.fig-info{flex:1;}
+.fig-info .t1{font-size:12.5px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(80,50,140,.5);}
+.fig-info .t2{font-size:10.5px;color:rgba(255,255,255,.75);}
+.fig-check{
+  display:flex;align-items:center;gap:4px;
+  background:rgba(55,184,124,.2);border-radius:8px;
+  padding:3px 8px;font-size:10.5px;font-weight:700;color:#1a7a4a;
+}
+
+/* 声音卡波形占位 */
+.voice-wave{
+  height:36px;background:rgba(139,108,240,.08);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;gap:3px;
+  margin-bottom:8px;overflow:hidden;
+}
+.voice-wave i{width:3px;border-radius:3px;background:var(--p2);height:12px;}
+.voice-wave i:nth-child(1){height:8px}
+.voice-wave i:nth-child(2){height:16px}
+.voice-wave i:nth-child(3){height:24px}
+.voice-wave i:nth-child(4){height:18px}
+.voice-wave i:nth-child(5){height:10px}
+.voice-wave i:nth-child(6){height:22px}
+.voice-wave i:nth-child(7){height:14px}
+.voice-wave i:nth-child(8){height:8px}
+.voice-wave i:nth-child(9){height:20px}
+.voice-wave i:nth-child(10){height:12px}
+.voice-wave i:nth-child(11){height:16px}
+
+/* AB 对比试听 */
+.ab-row{display:flex;gap:8px;margin-bottom:8px;}
+.ab-btn{flex:1;text-align:center;padding:8px 0;border-radius:12px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--line);background:rgba(255,255,255,.7);color:var(--ink-soft);}
+.ab-btn.on{border-color:var(--p1);color:var(--p1);background:rgba(139,108,240,.08);}
+
+/* 人设字段 */
+.persona-fields{display:flex;flex-direction:column;gap:6px;}
+.pf-row{display:flex;align-items:center;gap:8px;}
+.pf-label{font-size:11px;font-weight:700;color:var(--ink-soft);width:50px;flex:none;}
+.pf-val{flex:1;font-size:12.5px;color:#4a3f70;background:rgba(255,255,255,.75);border-radius:10px;padding:7px 11px;border:1px solid var(--line);}
+
+/* 子女端——收件箱 */
+.inbox-list{flex:1;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:8px;padding-bottom:4px;}
+.inbox-list::-webkit-scrollbar{display:none;}
+.inbox-item{
+  background:var(--card);border-radius:16px;padding:11px 12px;
+  border:1px solid rgba(255,255,255,.55);box-shadow:var(--shadow-sm);
+  position:relative;overflow:hidden;
+}
+.inbox-item.alert{border-left:4px solid var(--red);}
+.inbox-item.help{border-left:4px solid var(--orange);}
+.inbox-item.done{border-left:4px solid var(--green);}
+.inbox-item.leave{border-left:4px solid var(--p2);}
+.ii-top{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+.ii-icon{font-size:14px;}
+.ii-title{font-size:12.5px;font-weight:700;color:#4a3f70;flex:1;}
+.ii-time{font-size:10.5px;color:var(--ink-faint);}
+.ii-badge{font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:7px;}
+.ii-badge.need{background:rgba(230,151,90,.15);color:#9a5a10;}
+.ii-badge.replied{background:rgba(55,184,124,.15);color:#1a7a4a;}
+.ii-badge.urgent{background:rgba(224,86,86,.15);color:#9a2020;}
+.ii-text{font-size:12px;color:var(--ink-soft);line-height:1.5;margin-bottom:5px;}
+.ii-ai-reply{
+  background:rgba(139,108,240,.07);border-radius:10px;
+  padding:6px 10px;font-size:11px;color:var(--ink-soft);line-height:1.45;
+}
+.ii-ai-label{font-size:10px;font-weight:700;color:var(--p1);margin-bottom:2px;}
+.inbox-footer{font-size:11px;color:var(--ink-faint);text-align:center;padding:6px 0 0;border-top:1px solid var(--line);}
+
+/* 子女端——回信中 */
+.original-audio{
+  background:rgba(255,255,255,.7);border-radius:14px;padding:11px 14px;
+  display:flex;align-items:center;gap:10px;margin-bottom:10px;flex:none;
+  border:1px solid var(--line);
+}
+.oa-icon{width:36px;height:36px;border-radius:50%;background:rgba(139,108,240,.12);
+  display:flex;align-items:center;justify-content:center;font-size:17px;flex:none;}
+.oa-info{flex:1;}
+.oa-label{font-size:11px;color:var(--ink-faint);}
+.oa-text{font-size:13px;font-weight:600;color:#4a3f70;}
+.oa-time{font-size:11px;color:var(--ink-faint);margin-left:auto;}
+
+.ai-draft{
+  background:rgba(139,108,240,.07);border-radius:14px;padding:12px 14px;
+  flex:none;margin-bottom:10px;border:1px solid rgba(139,108,240,.15);
+}
+.ai-draft-label{font-size:11px;font-weight:700;color:var(--p1);margin-bottom:5px;
+  display:flex;align-items:center;gap:5px;}
+.ai-draft-label span{font-weight:400;color:var(--ink-faint);}
+.ai-draft-text{font-size:12.5px;color:#4a3f70;line-height:1.55;}
+
+.rec-btn{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  width:100%;min-height:58px;border-radius:18px;border:none;
+  background:linear-gradient(135deg,var(--p1),var(--p2));
+  color:#fff;font-size:16px;font-weight:700;cursor:pointer;
+  box-shadow:0 6px 20px rgba(139,108,240,.4);flex:none;margin-bottom:10px;
+}
+
+/* 状态流转 stepper */
+.status-stepper{
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(255,255,255,.65);border-radius:14px;padding:10px 14px;flex:none;
+}
+.step{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;}
+.step-dot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;}
+.step-dot.done{background:var(--green);color:#fff;}
+.step-dot.active{background:var(--orange);color:#fff;}
+.step-dot.idle{background:rgba(180,170,200,.3);color:var(--ink-faint);}
+.step-label{font-size:10px;color:var(--ink-soft);font-weight:600;text-align:center;}
+.step-label.active{color:var(--orange);}
+.step-sep{width:24px;height:2px;background:var(--line);flex:none;margin-bottom:14px;}
+
+/* 子女端——话术库 */
+.speak-item{
+  background:var(--card);border-radius:14px;padding:10px 12px;
+  border:1px solid rgba(255,255,255,.55);box-shadow:var(--shadow-sm);
+  display:flex;align-items:center;gap:8px;margin-bottom:7px;
+}
+.si-info{flex:1;min-width:0;}
+.si-text{font-size:12.5px;font-weight:600;color:#4a3f70;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.si-meta{font-size:10.5px;color:var(--ink-faint);margin-top:2px;display:flex;align-items:center;gap:8px;}
+.provider-badge{font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:7px;background:rgba(139,108,240,.1);color:var(--p1);}
+.si-actions{display:flex;gap:6px;flex:none;}
+.si-act{width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:13px;
+  background:rgba(255,255,255,.8);box-shadow:var(--shadow-sm);}
+
+/* 节日模板区 */
+.holiday-row{display:flex;gap:8px;margin-top:10px;}
+.holiday-card{flex:1;background:rgba(255,255,255,.65);border-radius:14px;padding:10px;text-align:center;
+  border:1.5px solid var(--line);box-shadow:var(--shadow-sm);}
+.holiday-card .he{font-size:22px;margin-bottom:4px;}
+.holiday-card .hn{font-size:11.5px;font-weight:700;color:#4a3f70;}
+.holiday-card .hv1{font-size:10px;padding:2px 8px;border-radius:7px;background:rgba(139,108,240,.12);color:var(--p1);font-weight:700;display:inline-block;margin-top:3px;}
+
+/* 子女端——家庭与成本 */
+.family-member{
+  display:flex;align-items:center;gap:10px;padding:11px 12px;
+  background:var(--card);border-radius:14px;border:1px solid rgba(255,255,255,.55);
+  box-shadow:var(--shadow-sm);margin-bottom:7px;
+}
+.fm-ava{width:40px;height:40px;border-radius:50%;
+  background:radial-gradient(circle at 50% 40%,#f6e2d2,#e9c5b0 55%,transparent 70%),
+    linear-gradient(180deg,#cbb0ec,#b9a0e0);
+  display:flex;align-items:center;justify-content:center;font-size:20px;flex:none;}
+.fm-info{flex:1;}
+.fm-name{font-size:13.5px;font-weight:700;color:#4a3f70;}
+.fm-status{font-size:11px;color:var(--ink-faint);margin-top:1px;}
+.fm-badge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:8px;}
+.fm-badge.bound{background:rgba(55,184,124,.15);color:#1a7a4a;}
+.fm-badge.pending{background:rgba(230,151,90,.15);color:#9a5a10;}
+
+.cost-card{
+  background:var(--card);border-radius:16px;padding:14px;
+  border:1px solid rgba(255,255,255,.55);box-shadow:var(--shadow-sm);margin-bottom:10px;
+}
+.cost-top{display:flex;align-items:baseline;gap:6px;margin-bottom:10px;}
+.cost-num{font-size:22px;font-weight:800;color:#4a3f70;}
+.cost-unit{font-size:12px;color:var(--ink-soft);}
+.cost-sep{font-size:13px;color:var(--ink-faint);}
+.progress-bar{height:8px;background:rgba(180,170,200,.25);border-radius:4px;overflow:hidden;margin-bottom:4px;}
+.progress-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--p1),var(--p2));}
+.progress-meta{display:flex;justify-content:space-between;font-size:10.5px;color:var(--ink-faint);}
+
+.weekly-card{
+  background:var(--card);border-radius:16px;padding:14px;
+  border:1px solid rgba(255,255,255,.55);box-shadow:var(--shadow-sm);
+}
+.wk-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.wk-icon{font-size:18px;}
+.wk-title{font-size:13px;font-weight:700;color:#4a3f70;flex:1;}
+.wk-text{font-size:12.5px;color:var(--ink-soft);line-height:1.6;}
+.wk-note{font-size:10.5px;color:var(--ink-faint);margin-top:6px;}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+  文档头部
+  ============================================================ -->
+<div class="doc-header">
+  <div class="doc-kicker">Digital Twin · 两端高保真设计稿 · v1.0 · 2026-06-11</div>
+  <h1>数字分身两端版 · 高保真设计稿</h1>
+  <div class="doc-sub">
+    沿用「关怀岛屿」视觉体系（主紫 <code style="background:rgba(139,108,240,.1);color:#6b4fd8;padding:1px 6px;border-radius:5px;font-size:12px;">#8b6cf0</code>，紫粉手机壳，毛玻璃卡片，状态光环 + 声波 + 大麦克风），在此基础上演进出<strong>父母端</strong>（适老化·大字·单屏单任务）与<strong>子女端</strong>（管理台·正常密度·略素净底色）的差异化视觉语言，同一品牌、两种密度。
+    <br>对应 PRD-v2 两端版，包含 9 屏：父母端 P1–P4 · 子女端 C1–C5。
+  </div>
+  <div class="legend-bar">
+    <div class="legend-item"><div class="legend-dot l-ai"></div>AI / 数字分身回复（紫色调）</div>
+    <div class="legend-item"><div class="legend-dot l-real"></div>💌 真人回信（金色徽章·PRD R3·视觉可区分）</div>
+    <div class="legend-item"><div class="legend-dot l-alert"></div>🚨 告警消息（红色左边条）</div>
+    <div class="legend-item"><div class="legend-dot l-ok"></div>已完成 / 绑定状态</div>
+    <div class="legend-item" style="margin-left:auto;font-size:11px;color:#a39fb8;">父母端正文 ≥20px · 主按钮高 ≥56px（PRD P-6）</div>
+  </div>
+</div>
+
+<!-- ============================================================
+  父母端（P1–P4）
+  ============================================================ -->
+<div class="section-title" style="max-width:1100px;margin:0 auto 6px;">父母端（P1–P4）—— 适老化 · 单屏单任务</div>
+<div class="section-note">对应 PRD §04 父母端架构：唯一主屏 + 2 状态。正文 ≥20px，主按钮高 ≥56px，无二级菜单，永不展示技术报错。</div>
+
+<div class="phones-row">
+
+  <!-- ============ P1：诚实告知页 ============ -->
+  <div class="phone-col">
+    <div class="phone-label">P1 · 首次进入 · 诚实告知页</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+        <div class="scrn-tag">P1</div>
+        <div class="tell-page">
+          <!-- 子女头像 -->
+          <div class="tell-avatar">👨🏻</div>
+          <div class="tell-title">小军给您做了一个<br>分身助手</div>
+          <!-- 欢迎视频卡 -->
+          <div class="tell-video-card">
+            <div class="tell-video-thumb">
+              <div class="play-btn">▶</div>
+            </div>
+            <div class="tell-video-label">点开听小军说</div>
+          </div>
+          <!-- 三行大字说明（PRD §05 F2）-->
+          <div class="tell-points">
+            <div class="tell-point"><span class="tp-icon">🤝</span>平时它陪您聊，24小时都在</div>
+            <div class="tell-point"><span class="tp-icon">💌</span>小军本人的回复会带 💌 标记</div>
+            <div class="tell-point"><span class="tp-icon">🔔</span>您说的求助，小军能看到</div>
+          </div>
+          <!-- 超大主按钮（PRD P-6：min-height ≥56px）-->
+          <button class="bigbtn" style="font-size:18px;">开始和小军聊天</button>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#a39fb8;text-align:center;max-width:200px;line-height:1.5;">对应 PRD P-1 · 不可跳过 · 告知页二次进入不再出现 (PRD §06 R2)</div>
+  </div>
+
+  <!-- ============ P2：主屏·陪聊中 ============ -->
+  <div class="phone-col">
+    <div class="phone-label">P2 · 主屏 · 陪聊中 · 流畅模式</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+        <div class="scrn-tag">P2</div>
+        <div class="page" style="padding-bottom:16px;">
+          <!-- 关怀岛屿夜景舞台 -->
+          <div class="stage stage-parent s-listen">
+            <span class="moon">🌙</span>
+            <span class="lighthouse">🗼</span>
+            <span class="star" style="left:20%;top:30px;width:4px;height:4px;"></span>
+            <span class="star" style="left:72%;top:24px;width:3px;height:3px;animation-delay:1s;"></span>
+            <span class="star" style="left:84%;top:64px;width:5px;height:5px;animation-delay:.5s;"></span>
+            <div class="statepill listen">正在听您说…</div>
+            <!-- 小军形象占位 -->
+            <div class="avatar avatar-parent">
+              <span class="avatar-tag">小军</span>
+              <div class="face" style="font-size:80px;margin-top:22px;">👨🏻</div>
+            </div>
+            <!-- 声波 + 大麦克风 -->
+            <div class="mic-zone">
+              <div class="wave">
+                <i style="background:rgba(55,184,124,.9)"></i>
+                <i style="background:rgba(55,184,124,.9)"></i>
+                <i style="background:rgba(55,184,124,.9)"></i>
+                <i style="background:rgba(55,184,124,.9)"></i>
+                <i style="background:rgba(55,184,124,.9)"></i>
+              </div>
+            </div>
+          </div>
+          <!-- 实时字幕条 -->
+          <div class="subtitle-bar">
+            <div class="sub-label">您正在说</div>
+            今天中午吃了饺子，特别香…
+          </div>
+          <!-- 大字话题卡（PRD P-3）-->
+          <div class="topic-cards">
+            <div class="topic-card">🍚 今天吃了什么</div>
+            <div class="topic-card">💭 我想你了</div>
+            <div class="topic-card">🙏 帮我个忙</div>
+          </div>
+          <!-- 超大麦克风按钮 -->
+          <button class="bigbtn listen">
+            <span class="bmic">🎤</span>松开结束
+          </button>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#a39fb8;text-align:center;max-width:200px;line-height:1.5;">对应 PRD P-2 · P-3 · 话题卡 1s 内开播不走 LLM</div>
+  </div>
+
+  <!-- ============ P3：求助已转达 ============ -->
+  <div class="phone-col">
+    <div class="phone-label">P3 · 求助已转达 · 对话气泡态</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>10:32</span><span>📶 🔋</span></div>
+        <div class="scrn-tag">P3</div>
+        <div class="page" style="padding-bottom:16px;">
+          <!-- 缩小的舞台（空间留给对话）-->
+          <div class="stage s-idle" style="height:170px;">
+            <span class="moon" style="font-size:22px;top:16px;">🌙</span>
+            <span class="star" style="left:65%;top:18px;width:3px;height:3px;"></span>
+            <div class="statepill">帮您转达中</div>
+            <div class="avatar" style="width:110px;height:155px;">
+              <div class="face" style="font-size:52px;margin-top:16px;">👨🏻</div>
+            </div>
+          </div>
+          <!-- 对话区 -->
+          <div class="chat-parent">
+            <!-- 父母求助气泡 -->
+            <div class="msg-parent me">电视没声音了怎么弄</div>
+            <!-- 小军分身 AI 先接住（PRD §05 F4）-->
+            <div class="msg-parent ai" style="font-size:17px;">
+              您先检查一下遥控器上的静音键（通常是个喇叭图案），按一下试试。如果还没声音，把电视关了再开一下，一般就好了。我再帮您问问小军本人哈，他看到就回您。
+            </div>
+            <!-- 已转达状态条 -->
+            <div class="msg-status">
+              <span style="font-size:16px;">✓</span> 已转给小军 · 10:32
+            </div>
+          </div>
+          <!-- 底部大按钮 -->
+          <button class="bigbtn" style="font-size:17px;min-height:60px;">
+            <span class="bmic">🎤</span>按住说话
+          </button>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#a39fb8;text-align:center;max-width:200px;line-height:1.5;">对应 PRD P-4 · F4 流程 · AI 先接住 + 结尾导向真人</div>
+  </div>
+
+  <!-- ============ P4：收到回信 ============ -->
+  <div class="phone-col">
+    <div class="phone-label">P4 · 收到回信 · 💌 真人标识</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>11:08</span><span>📶 🔋</span></div>
+        <div class="scrn-tag">P4</div>
+        <div class="letter-page">
+          <!-- 标题 -->
+          <div class="letter-title">小军给您回信了</div>
+          <!-- 真人标识徽章（PRD §06 R3）-->
+          <div class="real-badge">💌 小军本人回复</div>
+          <!-- 回信视频卡（金色边框 = 视觉区分 AI 与真人）-->
+          <div class="letter-video-card">
+            <div class="letter-video-thumb">
+              <div style="font-size:52px;">👨🏻</div>
+              <div style="position:absolute;inset:0;background:linear-gradient(160deg,rgba(183,164,236,.4),rgba(230,196,224,.4));"></div>
+              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 4px 12px rgba(120,80,180,.35);">▶</div>
+              <div class="lv-duration">0:23</div>
+            </div>
+          </div>
+          <!-- 说明文字 -->
+          <div style="font-size:16px;color:#6e6889;line-height:1.6;margin-bottom:16px;text-align:center;padding:0 8px;">
+            小军说：妈，您先把遥控器电池换一下，通常是这个原因~
+          </div>
+          <!-- 两个大按钮 -->
+          <div class="letter-btns">
+            <button class="bigbtn" style="font-size:18px;min-height:62px;">▶ 再听一遍</button>
+            <button class="bigbtn outline" style="font-size:17px;min-height:62px;">🎤 我再说点</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#a39fb8;text-align:center;max-width:200px;line-height:1.5;">对应 PRD P-5 · F4 收件态 · 金色边框 = 真人/AI 视觉区分 (R3)</div>
+  </div>
+
+</div><!-- /phones-row 父母端 -->
+
+
+<!-- ============================================================
+  子女端（C1–C5）
+  ============================================================ -->
+<div class="section-title" style="max-width:1100px;margin:0 auto 6px;">子女端（C1–C5）—— 管理台 · 正常密度 · 工作台底色</div>
+<div class="section-note">对应 PRD §04 子女端架构：5 个模块。与父母端同为紫色系品牌，底色略素净（#c8bce8 起始渐变），信息密度正常，字号 12–14px。</div>
+
+<div class="phones-row">
+
+  <!-- ============ C1：分身工坊 ============ -->
+  <div class="phone-col">
+    <div class="phone-label">C1 · 分身工坊 · 形象 + 声音 + 人设</div>
+    <div class="phone child">
+      <div class="screen child-screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+        <div class="scrn-tag">C1</div>
+        <div class="page">
+          <div class="topbar">
+            <div class="iconbtn">‹</div>
+            <div class="title">分身工坊</div>
+            <div class="iconbtn">✓</div>
+          </div>
+          <div class="scroll">
+            <!-- 形象卡 -->
+            <div class="workshop-card">
+              <div class="wc-header">
+                <div class="wc-icon purple">🖼️</div>
+                <div class="wc-title">形象</div>
+                <div class="wc-badge">检测通过 ✓</div>
+              </div>
+              <div class="fig-preview">
+                <div class="fig-face">👨🏻</div>
+                <div class="fig-info">
+                  <div class="t1">小军（自定义）</div>
+                  <div class="t2">正面照 · EMO 检测通过</div>
+                </div>
+                <div class="fig-check">✓ 通过</div>
+              </div>
+              <button class="btn ghost sm" style="margin-top:0;">重新上传</button>
+            </div>
+
+            <!-- 声音卡 -->
+            <div class="workshop-card">
+              <div class="wc-header">
+                <div class="wc-icon green">🔊</div>
+                <div class="wc-title">声音</div>
+                <div class="wc-badge v1">V1</div>
+              </div>
+              <div style="font-size:12px;color:var(--ink-soft);margin-bottom:7px;line-height:1.5;">录 30 秒，让分身用你的声音说话</div>
+              <div class="voice-wave">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              </div>
+              <!-- A/B 对比试听 -->
+              <div class="ab-row">
+                <div class="ab-btn on">▶ A · 复刻声音</div>
+                <div class="ab-btn">▶ B · 预置龙婉</div>
+              </div>
+              <button class="btn ghost sm">重新录音</button>
+            </div>
+
+            <!-- 人设卡 -->
+            <div class="workshop-card">
+              <div class="wc-header">
+                <div class="wc-icon orange">🧠</div>
+                <div class="wc-title">人设</div>
+              </div>
+              <div class="persona-fields">
+                <div class="pf-row">
+                  <div class="pf-label">称呼</div>
+                  <div class="pf-val">妈 / 爸</div>
+                </div>
+                <div class="pf-row">
+                  <div class="pf-label">口头禅</div>
+                  <div class="pf-val">「没事的，有我呢」</div>
+                </div>
+                <div class="pf-row">
+                  <div class="pf-label">家庭常识</div>
+                  <div class="pf-val">家在成都，爸妈都退休了</div>
+                </div>
+                <div class="pf-row">
+                  <div class="pf-label">禁区话题</div>
+                  <div class="pf-val">不聊投资 / 转账 / 医疗</div>
+                </div>
+              </div>
+            </div>
+            <button class="btn" style="margin-top:6px;">保存并发送给妈妈</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#a39fb8;text-align:center;max-width:200px;line-height:1.5;">对应 PRD C-1 · C-2 · C-7 · 三段卡片，声音对比 A/B</div>
+  </div>
+
+  <!-- ============ C2：收件箱 ============ -->
+  <div class="phone-col">
+    <div class="phone-label">C2 · 收件箱 · 求助 + 告警 + 留言</div>
+    <div class="phone child">
+      <div class="screen child-screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+        <div class="scrn-tag">C2</div>
+        <div class="page">
+          <div class="topbar">
+            <div class="iconbtn">‹</div>
+            <div class="title">收件箱 <span style="font-size:11px;background:var(--red);color:#fff;padding:1px 7px;border-radius:8px;font-weight:700;">3</span></div>
+            <div class="iconbtn">⚙️</div>
+          </div>
+          <div class="inbox-list">
+            <!-- 告警置顶（PRD F5）-->
+            <div class="inbox-item alert">
+              <div class="ii-top">
+                <div class="ii-icon">🚨</div>
+                <div class="ii-title">妈妈健康告警</div>
+                <div class="ii-badge urgent">紧急</div>
+              </div>
+              <div class="ii-text" style="font-size:12.5px;color:#9a2020;font-weight:600;">妈妈连续说头晕，建议打个电话确认一下</div>
+              <div class="ii-time" style="font-size:11px;color:var(--ink-faint);">今天 · 09:18</div>
+            </div>
+            <!-- 求助1：待回 -->
+            <div class="inbox-item help">
+              <div class="ii-top">
+                <div class="ii-icon">🛠</div>
+                <div class="ii-title">妈妈求助 · 电视问题</div>
+                <div class="ii-time">10:32</div>
+                <div class="ii-badge need">待回信</div>
+              </div>
+              <div class="ii-text">「电视没声音了怎么弄」</div>
+              <div class="ii-ai-reply">
+                <div class="ii-ai-label">AI 已先回 · 可纠正</div>
+                建议先检查遥控器静音键，再尝试重启电视…
+              </div>
+            </div>
+            <!-- 求助2：已回信 -->
+            <div class="inbox-item done">
+              <div class="ii-top">
+                <div class="ii-icon">💰</div>
+                <div class="ii-title">妈妈求助 · 水电费</div>
+                <div class="ii-time">昨天</div>
+                <div class="ii-badge replied">已回信 ✓</div>
+              </div>
+              <div class="ii-text">「水电费在哪里交」</div>
+            </div>
+            <!-- 想念留言 -->
+            <div class="inbox-item leave">
+              <div class="ii-top">
+                <div class="ii-icon">💜</div>
+                <div class="ii-title">妈妈留言</div>
+                <div class="ii-time">昨天</div>
+              </div>
+              <div class="ii-text">「小军，你最近忙吗，记得好好吃饭」</div>
+            </div>
+          </div>
+          <!-- 隐私边界说明（PRD §06 R1）-->
+          <div class="inbox-footer">日常闲聊不会出现在这里，只有求助和告警</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#a39fb8;text-align:center;max-width:200px;line-height:1.5;">对应 PRD C-4 · F4 · F5 · 隐私边界 R1 UI 体现</div>
+  </div>
+
+  <!-- ============ C3：回信中 ============ -->
+  <div class="phone-col">
+    <div class="phone-label">C3 · 回信中 · 语音录制 + 状态流转</div>
+    <div class="phone child">
+      <div class="screen child-screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>10:38</span><span>📶 🔋</span></div>
+        <div class="scrn-tag">C3</div>
+        <div class="page">
+          <div class="topbar">
+            <div class="iconbtn">‹</div>
+            <div class="title">回信给妈妈</div>
+            <div class="iconbtn" style="font-size:12px;width:auto;padding:0 10px;border-radius:11px;">提交</div>
+          </div>
+          <!-- 父母原话音频条 -->
+          <div class="original-audio">
+            <div class="oa-icon">👵</div>
+            <div class="oa-info">
+              <div class="oa-label">妈妈原话</div>
+              <div class="oa-text">「电视没声音了怎么弄」</div>
+            </div>
+            <div class="oa-time">▶ 0:04</div>
+          </div>
+          <!-- AI 代答草稿（可编辑纠正）-->
+          <div class="ai-draft">
+            <div class="ai-draft-label">🤖 AI 已代答 <span>（点击可纠正）</span></div>
+            <div class="ai-draft-text">您先检查一下遥控器上的静音键（通常是个喇叭图案），按一下试试。如果还没声音，把电视关了再开一下，一般就好了。</div>
+          </div>
+          <!-- 大录音按钮（PRD C-5：≤60秒）-->
+          <button class="rec-btn">
+            <span style="font-size:24px;">🎤</span>按住录音回复（≤60 秒）
+          </button>
+          <!-- 状态流转 stepper（PRD C-5：生成中→已送达→妈妈已看）-->
+          <div class="status-stepper">
+            <div class="step">
+              <div class="step-dot active">⏳</div>
+              <div class="step-label active">生成中<br>约 3 分钟</div>
+            </div>
+            <div class="step-sep"></div>
+            <div class="step">
+              <div class="step-dot idle">✓</div>
+              <div class="step-label">已送达</div>
+            </div>
+            <div class="step-sep"></div>
+            <div class="step">
+              <div class="step-dot idle">👀</div>
+              <div class="step-label">妈妈已看</div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--ink-faint);text-align:center;margin-top:7px;line-height:1.5;">用您的原声驱动视频，不经过 TTS · 效果更真实</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#a39fb8;text-align:center;max-width:200px;line-height:1.5;">对应 PRD C-5 · F4 子女侧 · 三态 stepper</div>
+  </div>
+
+  <!-- ============ C4：话术库 ============ -->
+  <div class="phone-col">
+    <div class="phone-label">C4 · 话术库 · 缓存管理 + 节日模板</div>
+    <div class="phone child">
+      <div class="screen child-screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+        <div class="scrn-tag">C4</div>
+        <div class="page">
+          <div class="topbar">
+            <div class="iconbtn">‹</div>
+            <div class="title">话术库</div>
+            <div class="iconbtn">+</div>
+          </div>
+          <!-- 一键生成话术包 -->
+          <button class="btn" style="margin-top:0;margin-bottom:10px;font-size:13.5px;">✨ 一键生成常用话术包（10 条 · 约 ¥50）</button>
+          <!-- 话术列表 -->
+          <div class="scroll">
+            <div class="seg">已生成 · 6 条</div>
+            <div class="speak-item">
+              <div class="si-info">
+                <div class="si-text">妈，最近还好吗？想听您说说</div>
+                <div class="si-meta">
+                  <span class="provider-badge">EMO</span>
+                  <span>12s</span>
+                </div>
+              </div>
+              <div class="si-actions">
+                <div class="si-act">▶</div>
+                <div class="si-act" style="color:var(--red);">🗑</div>
+              </div>
+            </div>
+            <div class="speak-item">
+              <div class="si-info">
+                <div class="si-text">今天天气怎么样，出去走走了吗</div>
+                <div class="si-meta">
+                  <span class="provider-badge">EMO</span>
+                  <span>9s</span>
+                </div>
+              </div>
+              <div class="si-actions">
+                <div class="si-act">▶</div>
+                <div class="si-act" style="color:var(--red);">🗑</div>
+              </div>
+            </div>
+            <div class="speak-item" style="opacity:.7;">
+              <div class="si-info">
+                <div class="si-text" style="font-size:12px;color:var(--ink-faint);">春节快乐，祝您健康长寿</div>
+                <div class="si-meta">
+                  <span class="provider-badge" style="background:rgba(230,151,90,.15);color:var(--orange);">旧形象</span>
+                  <span>8s</span>
+                </div>
+              </div>
+              <div class="si-actions">
+                <div class="si-act">▶</div>
+                <div class="si-act" style="color:var(--red);">🗑</div>
+              </div>
+            </div>
+            <!-- 节日模板 -->
+            <div class="seg">节日模板</div>
+            <div class="holiday-row">
+              <div class="holiday-card">
+                <div class="he">🧧</div>
+                <div class="hn">春节祝福</div>
+                <div class="hv1">V1</div>
+              </div>
+              <div class="holiday-card">
+                <div class="he">🎂</div>
+                <div class="hn">生日祝福</div>
+                <div class="hv1">V1</div>
+              </div>
+              <div class="holiday-card">
+                <div class="he">👩‍👦</div>
+                <div class="hn">母亲节</div>
+                <div class="hv1">V1</div>
+              </div>
+            </div>
+            <div style="height:10px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#a39fb8;text-align:center;max-width:200px;line-height:1.5;">对应 PRD C-3 · 旧形象标注·figVer 隔离可见化</div>
+  </div>
+
+  <!-- ============ C5：家庭与成本 ============ -->
+  <div class="phone-col">
+    <div class="phone-label">C5 · 家庭管理 + 成本面板 + 周报</div>
+    <div class="phone child">
+      <div class="screen child-screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+        <div class="scrn-tag">C5</div>
+        <div class="page">
+          <div class="topbar">
+            <div class="iconbtn">‹</div>
+            <div class="title">家庭与成本</div>
+            <div class="iconbtn">⚙️</div>
+          </div>
+          <div class="scroll">
+            <!-- 家庭卡 -->
+            <div class="seg">家庭成员</div>
+            <div class="family-member">
+              <div class="fm-ava">👵</div>
+              <div class="fm-info">
+                <div class="fm-name">妈妈（李阿姨）</div>
+                <div class="fm-status">已绑定 · 上次活跃：今天 09:42</div>
+              </div>
+              <div class="fm-badge bound">已绑定</div>
+            </div>
+            <div class="family-member">
+              <div class="fm-ava">👴</div>
+              <div class="fm-info">
+                <div class="fm-name">爸爸（小军父）</div>
+                <div class="fm-status">待邀请</div>
+              </div>
+              <div class="fm-badge pending">待邀请</div>
+            </div>
+            <button class="btn ghost sm" style="margin-bottom:6px;">微信发邀请链接给爸爸</button>
+            <button class="btn ghost sm" style="margin-top:4px;margin-bottom:14px;">换口令（当前口令 7 天后过期）</button>
+
+            <!-- 成本卡（PRD C-8）-->
+            <div class="seg">本月成本</div>
+            <div class="cost-card">
+              <div class="cost-top">
+                <div class="cost-num">86 秒</div>
+                <div class="cost-sep">/</div>
+                <div class="cost-unit" style="font-size:14px;color:#4a3f70;font-weight:700;">¥13.8</div>
+                <div style="margin-left:auto;font-size:10.5px;color:var(--ink-faint);">provider: EMO 0.16元/秒</div>
+              </div>
+              <!-- 额度进度条（PRD S-3）-->
+              <div class="progress-bar">
+                <div class="progress-fill" style="width:28.7%;"></div>
+              </div>
+              <div class="progress-meta">
+                <span>已用 86s</span>
+                <span>额度上限 300s/月</span>
+              </div>
+            </div>
+
+            <!-- 周报卡（PRD §06 R1：仅摘要，看不到聊天内容）-->
+            <div class="seg">本周周报</div>
+            <div class="weekly-card">
+              <div class="wk-header">
+                <div class="wk-icon">📊</div>
+                <div class="wk-title">妈妈本周陪聊摘要</div>
+              </div>
+              <div class="wk-text">本周妈妈聊了 12 次，主要聊做饭和天气，情绪状态良好。周四出现 1 次求助（电视问题），已回信。</div>
+              <div class="wk-note">仅显示摘要，看不到聊天内容（隐私保护 R1）</div>
+            </div>
+            <div style="height:10px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#a39fb8;text-align:center;max-width:200px;line-height:1.5;">对应 PRD C-6 · C-8 · S-3 · R1 隐私可见化</div>
+  </div>
+
+</div><!-- /phones-row 子女端 -->
+
+
+<!-- ============================================================
+  设计说明页脚
+  ============================================================ -->
+<div style="max-width:1100px;margin:0 auto;background:rgba(255,255,255,.78);border-radius:20px;padding:28px 32px;box-shadow:var(--shadow);border:1px solid rgba(139,108,240,.15);font-size:13px;color:var(--ink-soft);line-height:1.9;">
+  <div style="font-size:15px;font-weight:800;color:#3a2f6a;margin-bottom:14px;">设计说明 · 视觉演进点与关键决策</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div>
+      <div style="font-weight:700;color:#4a3f70;margin-bottom:6px;">与基准稿的视觉演进</div>
+      <div><b>父母端：</b>继承关怀岛屿夜景舞台、状态光环、状态药丸、声波，但字号放大至正文 19–21px，主按钮高度 ≥62px，话题卡替换原有小 chip，去除 topbar 导航（无返回箭头=无二级菜单），整屏信息密度降低约 50%。</div>
+      <div style="margin-top:8px;"><b>子女端：</b>手机壳和屏幕底色加深一档（<code style="background:rgba(139,108,240,.1);color:#6b4fd8;padding:1px 5px;border-radius:4px;font-size:11px;">#c8bce8</code> 起始渐变），营造「工作台」感，区别于父母端的「陪伴型」暖色感。字号和密度与原设置页一致。</div>
+    </div>
+    <div>
+      <div style="font-weight:700;color:#4a3f70;margin-bottom:6px;">三个最关键的组件决策</div>
+      <div><b>1. 真人/AI 金色徽章（PRD R3）：</b>真人回信用金色边框卡片（<code style="background:rgba(139,108,240,.1);color:#6b4fd8;padding:1px 5px;border-radius:4px;font-size:11px;">#f0c040</code>）+ 「💌 小军本人回复」徽章，与 AI 回复的紫色毛玻璃卡形成明确视觉层级差异，满足伦理边界 R3 的可区分要求。</div>
+      <div style="margin-top:8px;"><b>2. 父母端话题卡（PRD P-3）：</b>将原有 11.5px 小 chip 放大为独立行卡片（20px 字号，约 46px 高），保证老人视力衰退场景下单次触达率，且点击直触话术库不走 LLM，1s 内开播。</div>
+      <div style="margin-top:8px;"><b>3. 收件箱左边条颜色系统（PRD F4/F5）：</b>红=告警 / 橙=求助待回 / 绿=已回信 / 紫=留言，四色左边条视觉分类，配合右上角徽章文字，让子女在 3 秒内完成收件箱扫描。</div>
+    </div>
+  </div>
+  <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink-faint);">
+    <b>屏幕清单与 PRD 对应</b>：P1(PRD §P-1·R2) · P2(§P-2·P-3) · P3(§P-4·F4) · P4(§P-5·R3) · C1(§C-1·C-2·C-7) · C2(§C-4·F4·F5·R1) · C3(§C-5·F4子女侧) · C4(§C-3) · C5(§C-6·C-8·S-3·R1) · 技术栈：单仓 Vue 3 + 现有 design token，无新依赖。
+  </div>
+</div>
+
+</body>
+</html>
