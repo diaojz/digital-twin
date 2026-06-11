@@ -39,8 +39,28 @@ import {
   getProfile,
   setProfile,
 } from './memory.js';
-import { tts as dashscopeTts, genFigure, emoDetect, asr as dashscopeAsr } from './realhuman/api.js';
+import { tts as dashscopeTts, genFigure, emoDetect, asr as dashscopeAsr, uploadFile } from './realhuman/api.js';
 import { providers as videoProviders, getProvider, listProviders } from './realhuman/providers/index.js';
+// ── M1 两端版模块（区域 A-D 交付）──────────────────────────────
+import {
+  initFamilyDb,
+  getFamily,
+  setFamilyConfirmed,
+  regenInviteCode,
+  authMiddleware,
+} from './family.js';
+import {
+  createMessage,
+  listMessages,
+  getMessage,
+  setStatus,
+  markViewed,
+  pendingReplies,
+  scanReminders,
+} from './inbox.js';
+import { classifyIntent, helpSystemPrompt, alertComfortPrompt, isUrgent } from './intent.js';
+import { addUsage, getUsage, checkQuota } from './quota.js';
+import { SPEAK_TEMPLATES } from './speak-templates.js';
 
 // ── 读取 .env 文件（如果存在） ──────────────────────────────
 // Node 24 原生支持 --env-file 参数，但为了兼容旧版本，这里手动解析
@@ -70,6 +90,10 @@ if (existsSync(envPath)) {
 // 在读取配置之前初始化，因为 initDb 依赖 OLLAMA_BASE 等环境变量
 // 这里提前调用，之后 server 启动后会看到日志
 initDb();
+
+// ── 初始化两端版家庭库（family.db：建表 + seed family/child/parent，幂等）──
+// inbox.js / quota.js 共享 family.js 的 db 句柄，这里先把库建好。
+initFamilyDb();
 
 // ── 读取配置 ────────────────────────────────────────────────
 const config = {
@@ -336,26 +360,16 @@ try {
 
 // ── Express 应用 ─────────────────────────────────────────────
 const app = express();
-// ── 在线演示访问口令（可选，公网部署必开）──────────────────
-// .env 设置 ACCESS_CODE 后启用：首次访问带 ?code=口令，通过后种 cookie 30 天免输。
-// 用途：公网演示时保护 DASHSCOPE_API_KEY 额度不被陌生人消耗（EMO 按秒计费）。
-// 本地使用不设 ACCESS_CODE 即可，行为完全不变。
-const ACCESS_CODE = process.env.ACCESS_CODE || '';
-if (ACCESS_CODE) {
-  console.log('[Config] ACCESS_CODE 已启用（在线演示口令保护）');
-  app.use((req, res, next) => {
-    const cookies = Object.fromEntries(
-      (req.headers.cookie || '').split(';').map(s => s.trim().split('=')).filter(p => p.length === 2)
-    );
-    if (cookies.twin_code === ACCESS_CODE) return next();
-    const q = new URL(req.url, 'http://placeholder').searchParams.get('code');
-    if (q === ACCESS_CODE) {
-      res.setHeader('Set-Cookie', `twin_code=${ACCESS_CODE}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax`);
-      return next();
-    }
-    res.status(401).send('<!doctype html><meta charset="utf-8"><body style="font-family:sans-serif;text-align:center;padding-top:20vh;background:#f4effb;color:#4a3f70;"><h2>🔒 小忆在线演示</h2><p>需要访问口令：请用 <code>?code=口令</code> 形式的完整链接访问</p></body>');
-  });
-}
+// ── 双口令 / 角色中间件（替换原 ACCESS_CODE 块，契约 §5.1）──────
+// authMiddleware() 行为向后兼容：
+//   - 任一 code（CHILD_CODE / PARENT_CODE / ACCESS_CODE）配置 → 口令模式：
+//     ?code= / cookie twin_code → resolveMemberByCode → req.member={id,familyId,role}，
+//     命中种 cookie 30 天 + touch 活跃，无效 401 拦截页（沿用现风格）。
+//     「仅设 ACCESS_CODE 未设 CHILD_CODE/PARENT_CODE」的老配置仍可用：
+//      family.js 把 ACCESS_CODE 作为 child 邀请码的回落默认值（§1），等效原 ACCESS_CODE 口令。
+//   - 全部 code 未配置（本地裸跑）→ 默认 req.member={familyId:1, role: X-Twin-Role==='parent'?'parent':'child'}。
+// 挂在 express.static 之前：和原 ACCESS_CODE 中间件位置一致（对所有请求生效，不单独放行静态资源）。
+app.use(authMiddleware());
 
 // limit 调大：上传自定义照片走 base64 JSON（默认 100kb 装不下一张照片）
 app.use(express.json({ limit: '15mb' }));
@@ -407,7 +421,34 @@ app.post('/api/chat', async (req, res) => {
   const personaPrefix = (persona && typeof persona === 'string' && persona.trim())
     ? persona.trim() + '\n\n'
     : '';
-  const systemPrompt = personaPrefix + BASE_SYSTEM_PROMPT + memoryContext;
+
+  // ── 两端版：仅父母端做意图分类（child 走原逻辑零变化，契约 §5.2）──
+  // intent 仅在 parent 角色下计算；为 null 表示走原 chat 行为。
+  const isParent = req.member && req.member.role === 'parent';
+  let intent = null;
+  let intentPrompt = '';        // help / health_risk 时注入的追加段
+  if (isParent) {
+    try {
+      const r = await classifyIntent(userMessage);
+      intent = r.intent;
+    } catch (e) {
+      // classifyIntent 内部已兜底回落 chat，这里再保一层防御
+      console.warn('[Chat] 意图分类异常（回落 chat）:', e.message);
+      intent = 'chat';
+    }
+    const childNickname = childNicknameOf(req.member.familyId);
+    if (intent === 'help') {
+      intentPrompt = '\n\n' + helpSystemPrompt(childNickname);
+    } else if (isUrgent(intent)) {
+      intentPrompt = '\n\n' + alertComfortPrompt();
+    } else if (intent === 'emotion') {
+      // 情绪计数走 memory 既有机制（下方 extractAndSaveMemory 照常抽取），此处仅记录
+      console.log('[Chat] 父母端意图=emotion（情绪表达），按既有记忆机制记录');
+    }
+    console.log('[Chat] 父母端意图分类:', intent);
+  }
+
+  const systemPrompt = personaPrefix + BASE_SYSTEM_PROMPT + memoryContext + intentPrompt;
 
   if (memoryContext) {
     console.log('[Chat] 已注入记忆上下文（', memoryContext.length, '字符）');
@@ -433,7 +474,33 @@ app.post('/api/chat', async (req, res) => {
 
   let assistantReply = '';
   try {
-    assistantReply = await callLlmStream(endpoint, llmBody, res);
+    // 父母端 help/health_risk：先不让 callLlmStream 自动收尾（end），
+    // 这样流式结束后还能在 [DONE] 之后追加一帧 inbox 事件。
+    const needInbox = isParent && (intent === 'help' || intent === 'health_risk');
+    assistantReply = await callLlmStream(endpoint, llmBody, res, { autoEnd: !needInbox });
+
+    if (needInbox && !res.writableEnded) {
+      // 把这轮父母求助 / 告警落库收件箱，子女端可见、可回信（F4 闭环 / F5 告警）
+      try {
+        const type = intent === 'help' ? 'help' : 'alert';
+        const fromMember = parentMemberIdOf(req.member);
+        const msg = createMessage({
+          familyId: req.member.familyId,
+          fromMember,
+          type,
+          originalText: userMessage,
+          // help 把完整 AI 代答存进去（子女回信前父母也能看到初步答复）；alert 不存代答正文
+          aiReply: type === 'help' ? assistantReply : null,
+        });
+        // SSE 末尾追加 inbox 事件帧（契约 §5.2），前端据此在气泡下挂「已转给子女」状态条
+        res.write(`data: ${JSON.stringify({ inbox: { id: msg.id, type } })}\n\n`);
+        console.log(`[Chat] 已落收件箱 #${msg.id}（type=${type}）`);
+      } catch (e) {
+        console.warn('[Chat] 落收件箱失败（不阻塞对话）:', e.message);
+      }
+      res.write('data: [DONE]\n\n');
+      res.end();
+    }
   } catch (err) {
     console.error('[Chat] 转发出错:', err.message);
     // 如果响应还没发完，发一个错误事件
@@ -454,11 +521,34 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// ── 两端版小工具：从家庭里取 child 昵称 / parent 成员 id ─────────
+/** 取某家庭 child 成员昵称（helpSystemPrompt 用），找不到给中性兜底 */
+function childNicknameOf(familyId) {
+  try {
+    const fam = getFamily(familyId);
+    const child = fam && fam.members && fam.members.find(m => m.role === 'child');
+    return (child && child.nickname) || '我';
+  } catch (_) {
+    return '我';
+  }
+}
+/** 取 parent 成员 id（裸跑模式 req.member 无 id 时按家庭查 parent 成员） */
+function parentMemberIdOf(member) {
+  if (member && member.id) return member.id;
+  try {
+    const fam = getFamily(member.familyId);
+    const parent = fam && fam.members && fam.members.find(m => m.role === 'parent');
+    return (parent && parent.id) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 /**
  * 调用 LLM（OpenAI 兼容 SSE 流），把 token 逐字转发给浏览器
  * 这里手动用 Node http/https 模块，避免引入额外依赖（教学友好）
  */
-function callLlmStream(endpoint, body, clientRes) {
+function callLlmStream(endpoint, body, clientRes, { autoEnd = true } = {}) {
   return new Promise((resolve, reject) => {
     let fullContent = ''; // 收集完整回复（用于记忆抽取）
     const urlObj = new URL(endpoint.url);
@@ -513,8 +603,9 @@ function callLlmStream(endpoint, body, clientRes) {
 
           const raw = trimmed.slice(5).trim();
           if (raw === '[DONE]') {
-            // 流结束，通知前端
-            clientRes.write('data: [DONE]\n\n');
+            // 流结束，通知前端。autoEnd=false 时由调用方在追加 inbox 事件后再写 [DONE]，
+            // 这里先不转发，保证 inbox 事件帧排在 [DONE] 之前。
+            if (autoEnd) clientRes.write('data: [DONE]\n\n');
             continue;
           }
 
@@ -535,7 +626,9 @@ function callLlmStream(endpoint, body, clientRes) {
 
       llmRes.on('end', () => {
         console.log('[Chat] LLM 流结束');
-        if (!clientRes.writableEnded) {
+        // autoEnd=true：照旧收尾（兜底补 [DONE] 并 end）。
+        // autoEnd=false：把收尾权交给调用方（它要先追加 inbox 事件再写 [DONE]+end）。
+        if (autoEnd && !clientRes.writableEnded) {
           clientRes.write('data: [DONE]\n\n');
           clientRes.end();
         }
@@ -1389,6 +1482,13 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
     return res.json({ audioUrl, videoError: '流畅模式：仅语音（对口型可在设置预生成或开启对话对口型）' });
   }
 
+  // 额度闸门（契约 §5.4）：本月视频额度用完 → 不发起付费生成，直接降级播音频。
+  const familyId = (req.member && req.member.familyId) || 1;
+  if (!checkQuota(familyId).allowed) {
+    console.warn('[RealHuman/speak] 本月视频额度已用完，降级播音频，familyId=', familyId);
+    return res.json({ audioUrl, videoError: '本月额度已用完，已为您改成语音回复（额度下月自动恢复）' });
+  }
+
   // Step 2: 当前视频 provider 生成对口型视频
   //（失败则降级：仍返回 audioUrl，前端只播音频 + 静态图，不卡死；
   //  绝不跨 provider 静默回退——A 失败不偷偷调 B，契约 §5）
@@ -1463,12 +1563,336 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
     if (!outVideo) {
       throw new Error(`${provider.displayName} 生成结束但未返回视频（videoUrl/videoBuffer 均为空），请检查该 provider 实现或稍后重试`);
     }
+    // 计量（契约 §5.4）：本次真实生成视频按估秒（文本长度/4）累计当月用量
+    try { addUsage(familyId, Math.max(1, Math.ceil(text.trim().length / 4))); } catch (e) { console.warn('[RealHuman/speak] 计量失败（忽略）:', e.message); }
     console.log('[RealHuman/speak] 视频就绪:', outVideo);
     res.json({ videoUrl: outVideo, audioUrl });
   } catch (err) {
     console.error(`[RealHuman/speak] ${videoProvider} 视频生成失败（降级播音频）:`, err.message);
     res.json({ audioUrl, videoError: err.message });
   }
+});
+
+// ════════════════════════════════════════════════════════════
+// M1 两端版新路由（契约 §5.3 / §5.4 / §5.5）
+// 全部 JSON；除 parent 专用外默认 child 权限。req.member 由 authMiddleware 注入。
+// ════════════════════════════════════════════════════════════
+
+// ── 形象本地源文件读取（懒 prepare / oss 过期刷新用）──────────────
+// 与 speak 路由口径一致：按来源取 current-upload.jpg / current.png。
+function readFigureSource() {
+  if (!rhFigure) return { imageBuffer: null, mime: 'image/png' };
+  const srcFile = rhFigure.source === 'upload' ? AVATAR_UPLOAD_FILE : AVATAR_FILE;
+  const mime = rhFigure.source === 'upload' ? 'image/jpeg' : 'image/png';
+  let imageBuffer = null;
+  try { imageBuffer = readFileSync(srcFile); } catch (_) {}
+  return { imageBuffer, mime };
+}
+
+/**
+ * 复用 speak 内部逻辑：用「当前形象 + 当前视频 provider」把一段音频驱动成对口型视频，
+ * 下载落本地 + 记入话术库 + 计量。speak-batch（TTS 音频）与 reply（子女原声）共用。
+ *
+ * @param {{ audioUrl, cacheKey, cacheMeta, familyId }} p
+ *   - audioUrl  驱动音频（speak-batch=CosyVoice TTS / reply=子女录音 oss URL）
+ *   - cacheKey  话术库键（已含 figVer + provider）
+ *   - cacheMeta 入库登记的附加信息 { text, voice, figVer }（reply 可不入语义库时省略 text）
+ * @returns {Promise<{ videoUrl }>} 成功返回本地 videoUrl；失败/降级 throw（调用方决定降级）
+ */
+async function driveLipsyncVideo({ audioUrl, cacheKey, cacheMeta = {}, familyId }) {
+  const provider = getProvider(videoProvider);
+  const cs = provider.configStatus();
+  if (!cs.ready) {
+    const e = new Error(`${provider.displayName} 未配置：缺 ${cs.missing.join('/')}，开通步骤见 README『三路视频 provider』`);
+    e.degrade = true; // 标记为「可降级」，调用方走语音/voice_delivered
+    throw e;
+  }
+  if (!rhFigure) {
+    const e = new Error('尚未生成形象，无法生成对口型视频');
+    e.degrade = true;
+    throw e;
+  }
+
+  const { imageBuffer, mime } = readFigureSource();
+
+  // 懒 prepare（同 speak 路由：首次用当前形象 / 形象已换 / 上次为瞬态可重试失败时重做）
+  rhFigure.providers = rhFigure.providers || {};
+  let pstate = rhFigure.providers[videoProvider];
+  if (!pstate || !pstate.meta || (pstate.preparedAt || 0) < (rhFigure.version || 0)
+      || (pstate.meta.checkPass === false && pstate.meta.retryable === true)) {
+    if (!imageBuffer) {
+      const e = new Error('形象原图已丢失，请到「设置 → 形象图片」重新生成或上传照片');
+      e.degrade = true; throw e;
+    }
+    const prep = await provider.prepareFigure({ imageBuffer, mime, ratio: rhFigure.ratio === '1:1' ? '1:1' : '3:4' });
+    pstate = { meta: prep.meta, preparedAt: Date.now() };
+    rhFigure.providers[videoProvider] = pstate;
+    try { writeFileSync(FIGURE_CACHE_FILE, JSON.stringify(rhFigure)); } catch (_) {}
+  }
+
+  // 形象质量检查未通过：不发起付费生成，降级（调用方据 e.degrade 处理）
+  if (pstate.meta && pstate.meta.checkPass === false) {
+    const e = new Error(pstate.meta.detectError || `${provider.displayName} 形象质量检查未通过，请更换照片`);
+    e.degrade = true; throw e;
+  }
+
+  const result = await provider.generateVideo({ imageBuffer, mime, meta: pstate.meta, audioUrl, text: cacheMeta.text || '' });
+  try { writeFileSync(FIGURE_CACHE_FILE, JSON.stringify(rhFigure)); } catch (_) {}
+
+  // 下载 + 入话术库（与 speak 路由一致）
+  let outVideo = result.videoUrl || null;
+  if (result.videoUrl) {
+    outVideo = await downloadVideo(result.videoUrl, cacheKey);
+  } else if (result.videoBuffer) {
+    if (!existsSync(VIDEO_DIR)) mkdirSync(VIDEO_DIR, { recursive: true });
+    writeFileSync(join(VIDEO_DIR, cacheKey + '.mp4'), result.videoBuffer);
+    outVideo = '/avatars/videos/' + cacheKey + '.mp4';
+  }
+  if (!outVideo) {
+    throw new Error(`${provider.displayName} 生成结束但未返回视频（videoUrl/videoBuffer 均为空）`);
+  }
+  if (outVideo.startsWith('/avatars/') && cacheMeta.text) {
+    const embedding = await getEmbedding(cacheMeta.text);
+    speakCache[cacheKey] = { path: outVideo, text: cacheMeta.text, voice: cacheMeta.voice, figVer: cacheMeta.figVer, provider: videoProvider, embedding };
+    try { writeFileSync(SPEAK_CACHE_FILE, JSON.stringify(speakCache)); } catch (_) {}
+  }
+  // 计量（估秒：文本长度/4，无文本如原声回信按 audio 时长无法估时给 1s 兜底）
+  try { addUsage(familyId, Math.max(1, Math.ceil((cacheMeta.text || '').length / 4))); } catch (_) {}
+  return { videoUrl: outVideo };
+}
+
+// ── GET /api/family —— 家庭信息 + 当月用量（child 默认权限）──────
+app.get('/api/family', (req, res) => {
+  const familyId = (req.member && req.member.familyId) || 1;
+  const family = getFamily(familyId);
+  if (!family) return res.status(404).json({ error: '家庭不存在' });
+  res.json({ family, usage: getUsage(familyId), role: req.member ? req.member.role : 'child' });
+});
+
+// ── POST /api/family/confirm —— 试看确认（child）──────────────────
+app.post('/api/family/confirm', (req, res) => {
+  const familyId = (req.member && req.member.familyId) || 1;
+  const ok = setFamilyConfirmed(familyId);
+  res.json({ ok, family: getFamily(familyId) });
+});
+
+// ── POST /api/family/code/regen —— 重生成某角色邀请码（child）──────
+app.post('/api/family/code/regen', (req, res) => {
+  const familyId = (req.member && req.member.familyId) || 1;
+  const { role } = req.body || {};
+  if (role !== 'child' && role !== 'parent') {
+    return res.status(400).json({ error: 'role 必须是 child 或 parent' });
+  }
+  const code = regenInviteCode(familyId, role);
+  if (!code) return res.status(409).json({ error: '邀请码重生成失败（成员不存在或多次撞码）' });
+  res.json({ ok: true, role, code });
+});
+
+// ── GET /api/inbox —— 收件箱列表（按角色视角）────────────────────
+app.get('/api/inbox', (req, res) => {
+  const familyId = (req.member && req.member.familyId) || 1;
+  const forRole = req.member && req.member.role === 'parent' ? 'parent' : 'child';
+  res.json({ messages: listMessages(familyId, { forRole }), forRole });
+});
+
+// ── POST /api/inbox/leave-word —— 父母留言（parent，无 AI 代答）────
+app.post('/api/inbox/leave-word', (req, res) => {
+  if (!req.member || req.member.role !== 'parent') {
+    return res.status(403).json({ error: '仅父母端可留言' });
+  }
+  const { text } = req.body || {};
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    return res.status(400).json({ error: 'text 不能为空' });
+  }
+  const fromMember = parentMemberIdOf(req.member);
+  const msg = createMessage({ familyId: req.member.familyId, fromMember, type: 'leave_word', originalText: text.trim() });
+  res.json({ ok: true, message: msg });
+});
+
+// ── POST /api/inbox/:id/reply —— 子女语音回信（child）──────────────
+/**
+ * body: { audio: "data:audio/...;base64,..." }
+ * 立即 202 {ok,status:'generating'}，后台异步：
+ *   存录音 → uploadFile(oss) → 当前 provider generateVideo（原声直驱，不经 TTS）
+ *   → 成功 setStatus delivered + 视频落 public/avatars/replies/<id>.mp4 + addUsage
+ *   → 失败重试 1 次仍败 / 额度不通过 → voice_delivered（child_reply_audio 即交付物）
+ */
+const REPLIES_DIR = join(__dirname, 'public', 'avatars', 'replies');
+app.post('/api/inbox/:id/reply', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: '无效的 id' });
+  const msg = getMessage(id);
+  if (!msg) return res.status(404).json({ error: '消息不存在' });
+
+  const { audio } = req.body || {};
+  const m = typeof audio === 'string' && audio.match(/^data:audio\/([a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!m) return res.status(400).json({ error: 'audio 需要 dataURL 格式（data:audio/...;base64,...）' });
+
+  // 录音落本地（前端可访问；也是 voice_delivered 降级时的交付物）
+  if (!existsSync(REPLIES_DIR)) mkdirSync(REPLIES_DIR, { recursive: true });
+  const audioBuf = Buffer.from(m[2], 'base64');
+  const ext = m[1].includes('webm') ? 'webm' : (m[1].includes('mp4') || m[1].includes('mpeg') ? 'mp4' : (m[1].includes('wav') ? 'wav' : 'webm'));
+  const audioFile = join(REPLIES_DIR, `${id}.${ext}`);
+  writeFileSync(audioFile, audioBuf);
+  const audioPath = `/avatars/replies/${id}.${ext}`;
+
+  // 立刻进入 generating 状态（pending → generating），并 202 返回
+  try {
+    setStatus(id, 'generating', { childReplyAudio: audioPath });
+  } catch (e) {
+    // 已是终态等非法迁移：直接报错（不开后台任务）
+    return res.status(409).json({ error: e.message });
+  }
+  res.status(202).json({ ok: true, status: 'generating' });
+
+  // ── 后台异步生成（不阻塞 202 响应）──
+  setImmediate(async () => {
+    const familyId = msg.familyId;
+    // 额度不通过 → 直接 voice_delivered（不发起付费生成）
+    if (!checkQuota(familyId).allowed) {
+      console.warn(`[Inbox/reply #${id}] 本月额度已用完，直接语音送达`);
+      try { setStatus(id, 'voice_delivered', { childReplyAudio: audioPath }); } catch (e) { console.warn('[Inbox/reply] 状态迁移失败:', e.message); }
+      return;
+    }
+
+    // 原声驱动：录音上传 oss → 当前 provider generateVideo（不经 TTS）。失败重试 1 次。
+    //
+    // ⚠️ 音频托管与 provider 强相关（uploadFile 走的是 DashScope 临时存储，产物是 oss:// URL）：
+    //   - emo（阿里 DashScope）：generateVideo 内部带 X-DashScope-OssResourceResolve 头，
+    //     能解析 oss://；上传 model 必须与后续生成模型一致 → emo-v1（与 §5.3 reply 链路一致）。
+    //   - omnihuman / seedance（火山引擎）：generateVideo 把 audioUrl 当「公网 HTTP 直链」消费
+    //     （seedance 会 fetch 探测时长、omnihuman 透传给火山下载），无法解析 DashScope 的 oss://。
+    //     M1 reply 原声驱动当前仅在 emo 下验证；非 emo provider 的录音公网托管（火山 TOS/图床）
+    //     未实现，故这里硬拒绝并降级语音送达，避免拿 oss:// 去喂火山导致隐性失败。
+    //   端到端阶段若要支持火山系 reply 原声驱动，再在此分支补对应图床上传通道。
+    if (videoProvider !== 'emo') {
+      console.warn(`[Inbox/reply #${id}] 当前 provider=${videoProvider} 暂不支持录音原声驱动（oss:// 仅 EMO 可解析），降级语音送达`);
+      try { setStatus(id, 'voice_delivered', { childReplyAudio: audioPath }); } catch (e) { console.warn('[Inbox/reply] 降级状态迁移失败:', e.message); }
+      return;
+    }
+    let lastErr = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        // EMO 只认公网 / oss:// URL：把子女录音上传 DashScope 临时存储换 oss:// URL（上传 model = emo-v1，与生成模型一致）
+        const ossAudio = await uploadFile(audioBuf, `reply-${id}.${ext}`, 'emo-v1');
+        const figVer = (rhFigure && rhFigure.version) || 'noimg';
+        const cacheKey = speakCacheKey({ reply: id, audio: ossAudio, figVer, provider: videoProvider, attempt });
+        const out = await driveLipsyncVideo({ audioUrl: ossAudio, cacheKey, cacheMeta: {}, familyId });
+        // 视频落到 replies/<id>.mp4（稳定路径，前端按消息 id 取）
+        const finalVideo = `/avatars/replies/${id}.mp4`;
+        try {
+          const srcAbs = join(__dirname, 'public', out.videoUrl.replace(/^\//, ''));
+          const dstAbs = join(REPLIES_DIR, `${id}.mp4`);
+          if (existsSync(srcAbs)) writeFileSync(dstAbs, readFileSync(srcAbs));
+        } catch (e) { console.warn('[Inbox/reply] 视频归档到 replies 失败（保留原路径）:', e.message); }
+        setStatus(id, 'delivered', { childReplyAudio: audioPath, replyVideo: finalVideo });
+        console.log(`[Inbox/reply #${id}] 对口型视频送达:`, finalVideo);
+        return;
+      } catch (e) {
+        lastErr = e;
+        console.warn(`[Inbox/reply #${id}] 第 ${attempt} 次生成失败:`, e.message);
+        // degrade 类（缺 key / 形象不合格）无需重试，直接降级
+        if (e.degrade) break;
+      }
+    }
+    // 两次仍败 → voice_delivered（child_reply_audio 即交付物）
+    console.warn(`[Inbox/reply #${id}] 视频生成失败，降级语音送达:`, lastErr && lastErr.message);
+    try { setStatus(id, 'voice_delivered', { childReplyAudio: audioPath }); } catch (e) { console.warn('[Inbox/reply] 降级状态迁移失败:', e.message); }
+  });
+});
+
+// ── GET /api/inbox/:id —— 取单条（双角色，parent 限本家庭）────────
+app.get('/api/inbox/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: '无效的 id' });
+  const msg = getMessage(id);
+  if (!msg) return res.status(404).json({ error: '消息不存在' });
+  const familyId = (req.member && req.member.familyId) || 1;
+  if (msg.familyId !== familyId) return res.status(403).json({ error: '无权访问' });
+  res.json({ message: msg });
+});
+
+// ── POST /api/inbox/:id/viewed —— 标记已查看（parent）────────────
+app.post('/api/inbox/:id/viewed', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: '无效的 id' });
+  const msg = getMessage(id);
+  if (!msg) return res.status(404).json({ error: '消息不存在' });
+  const familyId = (req.member && req.member.familyId) || 1;
+  if (msg.familyId !== familyId) return res.status(403).json({ error: '无权访问' });
+  try {
+    const updated = markViewed(id);
+    res.json({ ok: true, message: updated });
+  } catch (e) {
+    res.status(409).json({ error: e.message });
+  }
+});
+
+// ── GET /api/parent/replies —— 父母轮询已送达未查看回信（parent）──
+app.get('/api/parent/replies', (req, res) => {
+  const familyId = (req.member && req.member.familyId) || 1;
+  res.json({ replies: pendingReplies(familyId) });
+});
+
+// ── GET /api/speak-templates —— 预生成话术包模板（10 条）──────────
+app.get('/api/speak-templates', (_req, res) => {
+  res.json({ templates: SPEAK_TEMPLATES });
+});
+
+// ── POST /api/avatar/realhuman/speak-batch —— 批量生成话术入库（child）──
+/**
+ * body: { texts: [string, ...] }
+ * 逐条复用 speak 内部逻辑（TTS → 当前 provider 生成对口型 → 入话术库），SSE 回进度。
+ * 每条先过 checkQuota；额度不足 / 生成失败 → 该条标 error 继续下一条（不中断整批）。
+ * SSE 帧：data: {"index":N,"total":T,"text":"..","status":"ok|cached|error","videoUrl"?,"error"?}
+ *         末尾 data: [DONE]
+ */
+app.post('/api/avatar/realhuman/speak-batch', async (req, res) => {
+  const { texts } = req.body || {};
+  if (!Array.isArray(texts) || texts.length === 0) {
+    return res.status(400).json({ error: 'texts 必须是非空数组' });
+  }
+  const familyId = (req.member && req.member.familyId) || 1;
+
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const total = texts.length;
+  const usedVoice = 'longwan_v2';
+  const figVer = (rhFigure && rhFigure.version) || 'noimg';
+  const emit = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
+
+  for (let i = 0; i < total; i++) {
+    const raw = texts[i];
+    const text = typeof raw === 'string' ? raw.trim() : '';
+    if (!text) { emit({ index: i, total, text: '', status: 'error', error: '空文本' }); continue; }
+
+    try {
+      // 精确命中：已在库直接报 cached，不重复烧额度
+      const cacheKey = speakCacheKey({ text, voice: usedVoice, figVer, provider: videoProvider });
+      const hit = speakCache[cacheKey];
+      if (hit && hit.path && existsSync(join(__dirname, 'public', hit.path.replace(/^\//, '')))) {
+        emit({ index: i, total, text, status: 'cached', videoUrl: hit.path });
+        continue;
+      }
+      // 额度闸门
+      if (!checkQuota(familyId).allowed) {
+        emit({ index: i, total, text, status: 'error', error: '本月额度已用完' });
+        continue;
+      }
+      // TTS → 驱动对口型 → 入库
+      const audioUrl = await dashscopeTts(text, { voice: usedVoice });
+      const out = await driveLipsyncVideo({ audioUrl, cacheKey, cacheMeta: { text, voice: usedVoice, figVer }, familyId });
+      emit({ index: i, total, text, status: 'ok', videoUrl: out.videoUrl });
+    } catch (e) {
+      console.warn(`[speak-batch] 第 ${i + 1} 条失败:`, e.message);
+      emit({ index: i, total, text, status: 'error', error: e.message });
+    }
+  }
+  res.write('data: [DONE]\n\n');
+  res.end();
 });
 
 // ── 健康检查端点 ─────────────────────────────────────────────
@@ -1514,6 +1938,19 @@ app.get('/api/health', (_req, res) => {
     },
   });
 });
+
+// ── 定时器：每 10min 扫一遍超 4h 未回的求助，标记待提醒（契约 §5.5）──
+const REMINDER_INTERVAL_MS = 10 * 60 * 1000;
+setInterval(() => {
+  try {
+    const reminded = scanReminders();
+    if (reminded.length > 0) {
+      console.log(`[Reminder] 标记 ${reminded.length} 条超时未回的求助待提醒`);
+    }
+  } catch (e) {
+    console.warn('[Reminder] scanReminders 异常（忽略）:', e.message);
+  }
+}, REMINDER_INTERVAL_MS);
 
 // ── 启动服务 ─────────────────────────────────────────────────
 app.listen(config.port, () => {
