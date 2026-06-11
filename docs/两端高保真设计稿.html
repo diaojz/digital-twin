@@ -741,76 +741,95 @@ body{
         <div class="notch"></div>
         <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
         <div class="scrn-tag">C1</div>
-        <div class="page">
+        <div class="page" style="padding-bottom:14px;">
           <div class="topbar">
             <div class="iconbtn">‹</div>
             <div class="title">分身工坊</div>
             <div class="iconbtn">✓</div>
           </div>
-          <div class="scroll">
+          <div class="scroll" style="padding-bottom:0;">
             <!-- 形象卡 -->
-            <div class="workshop-card">
-              <div class="wc-header">
+            <div class="workshop-card" style="padding:7px 12px;margin-bottom:5px;">
+              <div class="wc-header" style="margin-bottom:5px;">
                 <div class="wc-icon purple">🖼️</div>
                 <div class="wc-title">形象</div>
                 <div class="wc-badge">检测通过 ✓</div>
               </div>
-              <div class="fig-preview">
-                <div class="fig-face">👨🏻</div>
-                <div class="fig-info">
-                  <div class="t1">小军（自定义）</div>
-                  <div class="t2">正面照 · EMO 检测通过</div>
+              <!-- 形象行（扁化）-->
+              <div style="display:flex;align-items:center;gap:10px;background:linear-gradient(160deg,#b7a4ec,#e6c4e0);border-radius:10px;padding:6px 12px;margin-bottom:5px;">
+                <span style="font-size:26px;flex:none;">👨🏻</span>
+                <div style="flex:1;">
+                  <div style="font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(80,50,140,.5);">小军（自定义）</div>
+                  <div style="font-size:10px;color:rgba(255,255,255,.75);">正面照 · EMO 检测通过</div>
                 </div>
-                <div class="fig-check">✓ 通过</div>
+                <div class="fig-check" style="font-size:10px;">✓ 通过</div>
               </div>
-              <button class="btn ghost sm" style="margin-top:0;">重新上传</button>
+              <button class="btn ghost sm" style="padding:5px 12px;font-size:11px;">重新上传</button>
             </div>
 
-            <!-- 声音卡 -->
-            <div class="workshop-card">
-              <div class="wc-header">
+            <!-- 声音卡（极简行布局）-->
+            <div class="workshop-card" style="padding:7px 12px;margin-bottom:5px;">
+              <div class="wc-header" style="margin-bottom:4px;">
                 <div class="wc-icon green">🔊</div>
                 <div class="wc-title">声音</div>
                 <div class="wc-badge v1">V1</div>
               </div>
-              <div style="font-size:12px;color:var(--ink-soft);margin-bottom:7px;line-height:1.5;">录 30 秒，让分身用你的声音说话</div>
-              <div class="voice-wave">
-                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              <!-- 波形 + AB 同行 -->
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <div class="voice-wave" style="flex:1;height:20px;margin-bottom:0;">
+                  <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                </div>
+                <div class="ab-btn on" style="padding:4px 8px;font-size:10.5px;border-radius:10px;white-space:nowrap;">▶ A 复刻</div>
+                <div class="ab-btn" style="padding:4px 8px;font-size:10.5px;border-radius:10px;white-space:nowrap;">▶ B 预置</div>
               </div>
-              <!-- A/B 对比试听 -->
-              <div class="ab-row">
-                <div class="ab-btn on">▶ A · 复刻声音</div>
-                <div class="ab-btn">▶ B · 预置龙婉</div>
-              </div>
-              <button class="btn ghost sm">重新录音</button>
+              <button class="btn ghost sm" style="padding:5px 12px;font-size:11px;">重新录音</button>
             </div>
 
-            <!-- 人设卡 -->
-            <div class="workshop-card">
-              <div class="wc-header">
+            <!-- 人设卡（3 行关键字段）-->
+            <div class="workshop-card" style="padding:7px 12px;margin-bottom:5px;">
+              <div class="wc-header" style="margin-bottom:4px;">
                 <div class="wc-icon orange">🧠</div>
                 <div class="wc-title">人设</div>
               </div>
-              <div class="persona-fields">
+              <div class="persona-fields" style="gap:2px;">
                 <div class="pf-row">
                   <div class="pf-label">称呼</div>
-                  <div class="pf-val">妈 / 爸</div>
+                  <div class="pf-val" style="padding:4px 10px;font-size:12px;">妈 / 爸</div>
                 </div>
                 <div class="pf-row">
                   <div class="pf-label">口头禅</div>
-                  <div class="pf-val">「没事的，有我呢」</div>
-                </div>
-                <div class="pf-row">
-                  <div class="pf-label">家庭常识</div>
-                  <div class="pf-val">家在成都，爸妈都退休了</div>
+                  <div class="pf-val" style="padding:4px 10px;font-size:12px;">「没事的，有我呢」</div>
                 </div>
                 <div class="pf-row">
                   <div class="pf-label">禁区话题</div>
-                  <div class="pf-val">不聊投资 / 转账 / 医疗</div>
+                  <div class="pf-val" style="padding:4px 10px;font-size:12px;">不聊投资 / 转账 / 医疗</div>
                 </div>
               </div>
             </div>
-            <button class="btn" style="margin-top:6px;">保存并发送给妈妈</button>
+
+            <!-- 试看确认卡（F1 质检关卡）-->
+            <div class="workshop-card" style="padding:7px 12px;margin-bottom:5px;">
+              <div class="wc-header" style="margin-bottom:4px;">
+                <div class="wc-icon" style="background:linear-gradient(160deg,#fff0e0,#fbe7f0);">👀</div>
+                <div class="wc-title">试看确认 · 像不像你？</div>
+              </div>
+              <!-- 视频缩略卡（内联行）-->
+              <div style="display:flex;align-items:center;gap:10px;background:linear-gradient(160deg,#b7a4ec,#e6c4e0);border-radius:10px;padding:6px 12px;margin-bottom:5px;">
+                <span style="font-size:20px;flex:none;">👨🏻</span>
+                <div style="flex:1;">
+                  <div style="font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(80,50,140,.5);">测试话术 · 0:08</div>
+                </div>
+                <div style="width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 6px rgba(120,80,180,.3);flex:none;">▶</div>
+              </div>
+              <!-- 两个并排按钮 -->
+              <div style="display:flex;gap:5px;margin-bottom:4px;">
+                <button class="btn sm" style="flex:1;padding:6px 4px;font-size:10.5px;margin-top:0;">✓ 像我，开始邀请爸妈</button>
+                <button class="btn ghost sm" style="flex:1;padding:6px 4px;font-size:10.5px;margin-top:0;">↻ 不像，换张照片</button>
+              </div>
+              <div style="font-size:10px;color:var(--ink-faint);text-align:center;line-height:1.3;">确认后才能生成邀请链接（F1 质检关卡）</div>
+            </div>
+
+            <button class="btn" style="padding:7px;">保存并发送给妈妈</button>
           </div>
         </div>
       </div>
@@ -843,13 +862,14 @@ body{
               <div class="ii-text" style="font-size:12.5px;color:#9a2020;font-weight:600;">妈妈连续说头晕，建议打个电话确认一下</div>
               <div class="ii-time" style="font-size:11px;color:var(--ink-faint);">今天 · 09:18</div>
             </div>
-            <!-- 求助1：待回 -->
+            <!-- 求助1：待回 + 超时自动提醒徽章（状态机 4h 自环） -->
             <div class="inbox-item help">
               <div class="ii-top">
                 <div class="ii-icon">🛠</div>
                 <div class="ii-title">妈妈求助 · 电视问题</div>
                 <div class="ii-time">10:32</div>
                 <div class="ii-badge need">待回信</div>
+                <div class="ii-badge" style="background:rgba(230,151,90,.18);color:#8a4800;font-size:9px;padding:2px 7px;border-radius:7px;margin-left:4px;white-space:nowrap;">🔔 已提醒 · 超 4 小时未回</div>
               </div>
               <div class="ii-text">「电视没声音了怎么弄」</div>
               <div class="ii-ai-reply">
@@ -857,13 +877,13 @@ body{
                 建议先检查遥控器静音键，再尝试重启电视…
               </div>
             </div>
-            <!-- 求助2：已回信 -->
+            <!-- 求助2：已回信（绿色完成态示例） -->
             <div class="inbox-item done">
               <div class="ii-top">
                 <div class="ii-icon">💰</div>
                 <div class="ii-title">妈妈求助 · 水电费</div>
                 <div class="ii-time">昨天</div>
-                <div class="ii-badge replied">已回信 ✓</div>
+                <div class="ii-badge" style="background:rgba(55,184,124,.16);color:#1d7a4e;font-size:10px;padding:2px 8px;border-radius:7px;white-space:nowrap;">✓ 已回信 · 妈妈已看</div>
               </div>
               <div class="ii-text">「水电费在哪里交」</div>
             </div>
@@ -917,8 +937,13 @@ body{
           <button class="rec-btn">
             <span style="font-size:24px;">🎤</span>按住录音回复（≤60 秒）
           </button>
-          <!-- 状态流转 stepper（PRD C-5：生成中→已送达→妈妈已看）-->
+          <!-- 状态流转 stepper（PRD C-5：待回复→生成中→已送达→妈妈已看，四态）-->
           <div class="status-stepper">
+            <div class="step">
+              <div class="step-dot done">✓</div>
+              <div class="step-label">待回复</div>
+            </div>
+            <div class="step-sep"></div>
             <div class="step">
               <div class="step-dot active">⏳</div>
               <div class="step-label active">生成中<br>约 3 分钟</div>
@@ -934,7 +959,11 @@ body{
               <div class="step-label">妈妈已看</div>
             </div>
           </div>
-          <div style="font-size:11px;color:var(--ink-faint);text-align:center;margin-top:7px;line-height:1.5;">用您的原声驱动视频，不经过 TTS · 效果更真实</div>
+          <!-- 异常降级态注记 -->
+          <div style="font-size:10.5px;color:var(--orange);background:rgba(230,151,90,.09);border:1px solid rgba(230,151,90,.25);border-radius:10px;padding:6px 10px;margin-top:7px;line-height:1.5;text-align:left;">
+            ⚠️ 生成失败自动重试 1 次，仍失败将降级为语音送达（妈妈只听声音）
+          </div>
+          <div style="font-size:11px;color:var(--ink-faint);text-align:center;margin-top:5px;line-height:1.5;">用您的原声驱动视频，不经过 TTS · 效果更真实</div>
         </div>
       </div>
     </div>
