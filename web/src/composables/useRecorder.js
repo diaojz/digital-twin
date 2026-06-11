@@ -3,6 +3,7 @@
  * 封装旧版 toggleMic / toggleMicWhisper / startVAD / stopVAD / autoStopRecording
  */
 import { ref } from 'vue';
+import { apiFetch } from '../api/client.js';
 
 export function useRecorder({ onTranscript, onError, toast }) {
   // 当前 ASR provider（由 /api/health 注入，默认 webspeech）
@@ -133,7 +134,7 @@ export function useRecorder({ onTranscript, onError, toast }) {
       try {
         const fd = new FormData();
         fd.append('audio', blob, 'rec.webm');
-        const r = await fetch('/api/asr', { method: 'POST', body: fd });
+        const r = await apiFetch('/api/asr', { method: 'POST', body: fd });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || '识别失败');
         const txt = (data.text || '').trim();
