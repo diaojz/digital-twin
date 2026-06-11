@@ -28,13 +28,22 @@ const FAMILY_DB_PATH = isAbsolute(FAMILY_DB_ENV) ? FAMILY_DB_ENV : join(__dirnam
 
 // 邀请码来源 env（契约 §1）：
 //   CHILD_CODE 缺省回落 ACCESS_CODE，再缺省 'dev-child'
-//   PARENT_CODE 缺省 'dev-parent'
+//   PARENT_CODE 缺省 'dev-parent'（仅裸跑模式）
 // 注意：这两个值仅作「首次 seed」的默认值；库里一旦有值，库优先（见 regenInviteCode）。
 function envChildCode() {
   return process.env.CHILD_CODE || process.env.ACCESS_CODE || 'dev-child';
 }
 function envParentCode() {
-  return process.env.PARENT_CODE || 'dev-parent';
+  if (process.env.PARENT_CODE) return process.env.PARENT_CODE;
+  // ⚠️ 安全：口令模式下（如线上只配了 ACCESS_CODE）父母口令绝不能落到可猜的
+  // 'dev-parent' 默认值——否则任何人带 ?code=dev-parent 就能进父母端烧生成额度。
+  // 此时随机生成并打印到启动日志，管理员可在子女端「家庭」页查看或换口令。
+  if (process.env.CHILD_CODE || process.env.ACCESS_CODE) {
+    const rand = 'p-' + Math.random().toString(36).slice(2, 10);
+    console.warn(`[Family] 口令模式但未设 PARENT_CODE，已随机生成父母口令：${rand}（建议在 .env 显式设置 PARENT_CODE）`);
+    return rand;
+  }
+  return 'dev-parent';
 }
 
 // 是否「全部 code 未配置」（本地裸跑模式判定，契约 §5.1）

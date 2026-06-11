@@ -1731,10 +1731,12 @@ app.post('/api/inbox/:id/reply', async (req, res) => {
   // 录音落本地（前端可访问；也是 voice_delivered 降级时的交付物）
   if (!existsSync(REPLIES_DIR)) mkdirSync(REPLIES_DIR, { recursive: true });
   const audioBuf = Buffer.from(m[2], 'base64');
-  const ext = m[1].includes('webm') ? 'webm' : (m[1].includes('mp4') || m[1].includes('mpeg') ? 'mp4' : (m[1].includes('wav') ? 'wav' : 'webm'));
-  const audioFile = join(REPLIES_DIR, `${id}.${ext}`);
+  // 录音存「<id>-audio.<真实音频后缀>」：与视频归档（<id>.mp4）解耦——否则 mp3(audio/mpeg)
+  // 被映射成 .mp4 后会在 delivered 时被对口型视频同名覆盖，voice_delivered 降级就丢了原声
+  const ext = m[1].includes('webm') ? 'webm' : (m[1].includes('mpeg') || m[1].includes('mp3') ? 'mp3' : (m[1].includes('mp4') || m[1].includes('m4a') || m[1].includes('aac') ? 'm4a' : (m[1].includes('wav') ? 'wav' : 'webm')));
+  const audioFile = join(REPLIES_DIR, `${id}-audio.${ext}`);
   writeFileSync(audioFile, audioBuf);
-  const audioPath = `/avatars/replies/${id}.${ext}`;
+  const audioPath = `/avatars/replies/${id}-audio.${ext}`;
 
   // 立刻进入 generating 状态（pending → generating），并 202 返回
   try {
