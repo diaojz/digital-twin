@@ -1,0 +1,397 @@
+/* ============================================================
+   theme-elder —— 父母端适老化主题（P1-P4）
+   契约 §6：正文 ≥20px、主按钮 ≥56px、单屏单任务、无二级菜单、
+   技术报错一律「稍后再试试」。紫色 token 沿用设计稿「关怀岛屿」体系。
+   作用域：.theme-elder（由 ParentHome.vue 根节点挂载，不污染子女端）。
+   ============================================================ */
+
+.theme-elder {
+  /* 设计稿 token */
+  --p1: #8b6cf0;
+  --p2: #a78bfa;
+  --pink: #e9789f;
+  --ink: #3a3550;
+  --ink-soft: #6e6889;
+  --ink-faint: #a39fb8;
+  --card: rgba(255, 255, 255, .72);
+  --glass: rgba(255, 255, 255, .55);
+  --line: rgba(140, 120, 210, .14);
+  --green: #37b87c;
+  --orange: #e6975a;
+  --red: #e05656;
+  --gold: #c9860a;
+  --gold-bg: #fff8e6;
+  --gold-border: #f0c040;
+  --shadow: 0 10px 30px rgba(124, 92, 219, .12);
+  --shadow-sm: 0 4px 14px rgba(124, 92, 219, .10);
+}
+
+/* 父母端屏幕底色（设计稿 P2 .screen 暖紫渐变） */
+.theme-elder .screen {
+  background: linear-gradient(165deg, #cdbdf2, #dcc8ee 38%, #efd5e6 78%, #f6dbe6);
+}
+
+/* ────────────────────────────────────────────
+   通用大按钮（min-height ≥56px，正文 ≥20px）
+   ──────────────────────────────────────────── */
+.theme-elder .bigbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  border-radius: 22px;
+  border: none;
+  background: linear-gradient(135deg, var(--p1), var(--p2));
+  color: #fff;
+  font-size: 21px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(139, 108, 240, .45);
+  flex: none;
+}
+.theme-elder .bigbtn:disabled { opacity: .55; cursor: default; }
+.theme-elder .bigbtn .bmic { font-size: 28px; }
+.theme-elder .bigbtn.listen { background: linear-gradient(135deg, #37b87c, #5fcf95); }
+.theme-elder .bigbtn.outline {
+  background: rgba(255, 255, 255, .8);
+  color: var(--p1);
+  box-shadow: 0 4px 14px rgba(139, 108, 240, .2);
+  border: 2px solid rgba(139, 108, 240, .35);
+}
+
+/* ────────────────────────────────────────────
+   P1 诚实告知页
+   ──────────────────────────────────────────── */
+.theme-elder .tell-page {
+  position: absolute;
+  inset: 0;
+  padding: 56px 22px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.theme-elder .tell-page::-webkit-scrollbar { display: none; }
+.theme-elder .tell-avatar {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #f6e2d2, #e9c5b0 55%, transparent 70%),
+    linear-gradient(180deg, #cbb0ec, #b9a0e0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 46px;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(120, 80, 180, .3);
+  margin-bottom: 14px;
+  flex: none;
+}
+.theme-elder .tell-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.theme-elder .tell-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #4a3f70;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+.theme-elder .tell-video-card {
+  width: 100%;
+  background: rgba(255, 255, 255, .78);
+  border-radius: 18px;
+  padding: 14px;
+  border: 1px solid rgba(139, 108, 240, .18);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
+  flex: none;
+  cursor: pointer;
+}
+.theme-elder .tell-video-thumb {
+  width: 100%;
+  height: 120px;
+  border-radius: 12px;
+  background: linear-gradient(160deg, #b7a4ec, #e6c4e0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  position: relative;
+  overflow: hidden;
+}
+.theme-elder .tell-video-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.theme-elder .tell-video-thumb .play-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--p1);
+  box-shadow: 0 4px 12px rgba(120, 80, 180, .35);
+  z-index: 2;
+}
+.theme-elder .tell-video-label { font-size: 18px; font-weight: 700; color: #4a3f70; }
+.theme-elder .tell-points { width: 100%; text-align: left; margin-bottom: 18px; flex: none; }
+.theme-elder .tell-point {
+  font-size: 20px;
+  font-weight: 600;
+  color: #4a3f70;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(139, 108, 240, .12);
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.theme-elder .tell-point:last-child { border-bottom: none; }
+.theme-elder .tell-point .tp-icon { font-size: 24px; flex: none; }
+
+/* ────────────────────────────────────────────
+   P2 主屏
+   ──────────────────────────────────────────── */
+.theme-elder .parent-main {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 46px 16px 16px;
+  overflow: hidden;
+}
+/* 主屏舞台更高，占上半屏 */
+.theme-elder .parent-main .stage { height: 300px; flex: none; }
+.theme-elder .subtitle-bar {
+  background: rgba(255, 255, 255, .82);
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #4a3f70;
+  line-height: 1.5;
+  margin: 10px 0;
+  flex: none;
+  min-height: 56px;
+  border: 1px solid rgba(139, 108, 240, .18);
+}
+.theme-elder .subtitle-bar .sub-label {
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-weight: 400;
+  margin-bottom: 2px;
+}
+.theme-elder .topic-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: none;
+  margin-bottom: 10px;
+}
+.theme-elder .topic-card {
+  background: rgba(255, 255, 255, .78);
+  border: 1.5px solid rgba(139, 108, 240, .2);
+  border-radius: 16px;
+  padding: 14px 18px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #4a3f70;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+.theme-elder .topic-card:active { background: rgba(139, 108, 240, .1); }
+.theme-elder .parent-main .bigbtn { margin-top: auto; }
+
+/* ────────────────────────────────────────────
+   P3 求助转达态（对话气泡）
+   ──────────────────────────────────────────── */
+.theme-elder .chat-parent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 2px 2px 6px;
+  scrollbar-width: none;
+}
+.theme-elder .chat-parent::-webkit-scrollbar { display: none; }
+.theme-elder .msg-parent {
+  max-width: 88%;
+  padding: 14px 18px;
+  border-radius: 18px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.55;
+}
+.theme-elder .msg-parent.ai {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, .85);
+  color: #4a3f70;
+  border-bottom-left-radius: 5px;
+  box-shadow: var(--shadow-sm);
+}
+.theme-elder .msg-parent.me {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--p1), var(--p2));
+  color: #fff;
+  border-bottom-right-radius: 5px;
+}
+.theme-elder .msg-status {
+  font-size: 14px;
+  color: var(--green);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding-right: 4px;
+  margin-top: -2px;
+}
+
+/* 文字兜底输入（测试 + 不便说话时） */
+.theme-elder .text-fallback {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex: none;
+}
+.theme-elder .text-fallback input {
+  flex: 1;
+  min-height: 52px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(139, 108, 240, .25);
+  background: rgba(255, 255, 255, .85);
+  padding: 0 16px;
+  font-size: 20px;
+  color: #4a3f70;
+  outline: none;
+}
+.theme-elder .text-fallback button {
+  min-height: 52px;
+  min-width: 64px;
+  border-radius: 16px;
+  border: none;
+  background: linear-gradient(135deg, var(--p1), var(--p2));
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  cursor: pointer;
+  flex: none;
+}
+
+/* ────────────────────────────────────────────
+   P4 回信横幅 + 全屏覆盖层
+   ──────────────────────────────────────────── */
+.theme-elder .letter-banner {
+  position: absolute;
+  top: 44px;
+  left: 12px;
+  right: 12px;
+  z-index: 80;
+  background: var(--gold-bg);
+  border: 1.5px solid var(--gold-border);
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--gold);
+  box-shadow: 0 8px 24px rgba(201, 134, 10, .25);
+  cursor: pointer;
+}
+.theme-elder .letter-banner .lb-emoji { font-size: 24px; flex: none; }
+.theme-elder .letter-banner .lb-arrow { margin-left: auto; font-size: 22px; }
+
+.theme-elder .letter-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  background: linear-gradient(165deg, #cdbdf2, #dcc8ee 38%, #efd5e6 78%, #f6dbe6);
+  padding: 56px 18px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.theme-elder .letter-overlay::-webkit-scrollbar { display: none; }
+.theme-elder .letter-title { font-size: 24px; font-weight: 800; color: #4a3f70; margin-bottom: 14px; }
+.theme-elder .real-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gold-bg);
+  border: 1.5px solid var(--gold-border);
+  border-radius: 12px;
+  padding: 6px 16px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--gold);
+  margin-bottom: 12px;
+}
+.theme-elder .letter-video-card {
+  width: 100%;
+  background: rgba(255, 255, 255, .8);
+  border-radius: 20px;
+  padding: 14px;
+  border: 2px solid var(--gold-border);
+  box-shadow: 0 8px 24px rgba(201, 134, 10, .18);
+  margin-bottom: 16px;
+  flex: none;
+}
+.theme-elder .letter-video-card video {
+  width: 100%;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #b7a4ec, #e6c4e0);
+  display: block;
+}
+/* 无视频时的语音卡 */
+.theme-elder .letter-audio-card {
+  width: 100%;
+  background: rgba(255, 255, 255, .8);
+  border-radius: 20px;
+  padding: 22px 18px;
+  border: 2px solid var(--gold-border);
+  box-shadow: 0 8px 24px rgba(201, 134, 10, .18);
+  margin-bottom: 16px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.theme-elder .letter-audio-card .la-disc {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #f6e2d2, #e9c5b0 55%, transparent 70%),
+    linear-gradient(180deg, #cbb0ec, #b9a0e0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  overflow: hidden;
+}
+.theme-elder .letter-audio-card .la-disc img { width: 100%; height: 100%; object-fit: cover; }
+.theme-elder .letter-audio-card .la-text { font-size: 19px; font-weight: 700; color: #4a3f70; }
+.theme-elder .letter-note {
+  font-size: 18px;
+  color: #6e6889;
+  line-height: 1.6;
+  margin-bottom: 16px;
+  padding: 0 8px;
+}
+.theme-elder .letter-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin-top: auto;
+}
