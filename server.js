@@ -189,11 +189,11 @@ console.log(`[Config] WAKE_WORD_ENABLED=${config.wakeWord.enabled}, WAKE_WORDS=$
 console.log(`[Config] AVATAR_PROVIDER=${config.avatar.provider}, REALHUMAN_SERVICE_URL=${config.avatar.realHumanServiceUrl || '(未配置)'}`);
 
 // ── 视频 provider（对口型视频生成后端）运行时状态 ─────────────
-// emo = 阿里 EMO（默认）| omnihuman = 字节 OmniHuman | seedance = 字节 Seedance 2.0
+// emo = 阿里 EMO（默认）| wans2v = 阿里 万相全身 | omnihuman = 字节 OmniHuman | seedance = 字节 Seedance 2.0
 // 支持设置页热切换（POST /api/avatar/realhuman/provider）：内存切换，不写 .env。
 let videoProvider = process.env.VIDEO_PROVIDER || 'emo';
 if (!videoProviders[videoProvider]) {
-  console.warn(`[Config] VIDEO_PROVIDER=${videoProvider} 不是合法值（emo/omnihuman/seedance），已回退 emo`);
+  console.warn(`[Config] VIDEO_PROVIDER=${videoProvider} 不是合法值（${Object.keys(videoProviders).join('/')}），已回退 emo`);
   videoProvider = 'emo';
 }
 console.log(`[Config] VIDEO_PROVIDER=${videoProvider}`);
@@ -1492,13 +1492,20 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
   // Step 2: 当前视频 provider 生成对口型视频
   //（失败则降级：仍返回 audioUrl，前端只播音频 + 静态图，不卡死；
   //  绝不跨 provider 静默回退——A 失败不偷偷调 B，契约 §5）
+  //
+  // 长任务保活：wans2v 官方 5-10 分钟、omnihuman RTF≈20，都可能超过浏览器
+  // 「约 5 分钟收不到响应就断开」的超时线。JSON 允许前导空白 → 生成期间每 15s
+  // 写一个空格保活连接，最后写真正的 JSON（前端 resp.json() 照常解析，无需改动）。
+  res.setHeader('Content-Type', 'application/json');
+  const heartbeat = setInterval(() => { try { res.write(' '); } catch (_) {} }, 15000);
+  const finish = (obj) => { clearInterval(heartbeat); try { res.end(JSON.stringify(obj)); } catch (_) {} };
   try {
     const provider = getProvider(videoProvider);
 
     // key 未配置：不发起生成，直接降级播音频，文案告诉用户缺什么、去哪开通
     const cs = provider.configStatus();
     if (!cs.ready) {
-      return res.json({ audioUrl, videoError: `「${provider.displayName} 未配置：缺 ${cs.missing.join('/')}，开通步骤见 README『三路视频 provider』」` });
+      return finish({ audioUrl, videoError: `「${provider.displayName} 未配置：缺 ${cs.missing.join('/')}，开通步骤见 README『多路视频 provider』」` });
     }
 
     // 形象本地源文件是唯一真相：按来源读 current-upload.jpg / current.png。
@@ -1533,7 +1540,7 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
     // seedance 等无质量检查的 provider meta.checkPass 为 undefined，=== false 判断天然跳过。
     if (pstate.meta && pstate.meta.checkPass === false) {
       console.warn(`[RealHuman/speak] ${provider.displayName} 形象质量检查未通过（降级播音频）:`, pstate.meta.detectError || '(无 detectError)');
-      return res.json({ audioUrl, videoError: pstate.meta.detectError || `${provider.displayName} 形象质量检查未通过，请到「设置 → 形象图片」更换照片` });
+      return finish({ audioUrl, videoError: pstate.meta.detectError || `${provider.displayName} 形象质量检查未通过，请到「设置 → 形象图片」更换照片` });
     }
 
     console.log(`[RealHuman/speak] 调用 ${provider.displayName} 生成对口型视频...`);
@@ -1566,10 +1573,10 @@ app.post('/api/avatar/realhuman/speak', async (req, res) => {
     // 计量（契约 §5.4）：本次真实生成视频按估秒（文本长度/4）累计当月用量
     try { addUsage(familyId, Math.max(1, Math.ceil(text.trim().length / 4))); } catch (e) { console.warn('[RealHuman/speak] 计量失败（忽略）:', e.message); }
     console.log('[RealHuman/speak] 视频就绪:', outVideo);
-    res.json({ videoUrl: outVideo, audioUrl });
+    finish({ videoUrl: outVideo, audioUrl });
   } catch (err) {
     console.error(`[RealHuman/speak] ${videoProvider} 视频生成失败（降级播音频）:`, err.message);
-    res.json({ audioUrl, videoError: err.message });
+    finish({ audioUrl, videoError: err.message });
   }
 });
 

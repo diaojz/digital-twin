@@ -37,13 +37,16 @@ function sleep(ms) {
 /**
  * 轮询异步任务，直到 SUCCEEDED 或 FAILED
  * @param {string} taskId
+ * @param {object} [opts]
+ * @param {number} [opts.maxPoll=60]      轮询次数上限
+ * @param {number} [opts.interval=3000]   轮询间隔 ms（慢任务如 wan2.2-s2v 调大，省请求）
  * @returns {Promise<object>} 任务 output 字段
  */
-export async function pollTask(taskId) {
+export async function pollTask(taskId, { maxPoll = MAX_POLL, interval = POLL_INTERVAL } = {}) {
   const url = `${DASH_BASE}/api/v1/tasks/${taskId}`;
 
-  for (let i = 0; i < MAX_POLL; i++) {
-    await sleep(POLL_INTERVAL);
+  for (let i = 0; i < maxPoll; i++) {
+    await sleep(interval);
 
     const resp = await fetch(url, { headers: authHeaders() });
     if (!resp.ok) {
@@ -62,10 +65,10 @@ export async function pollTask(taskId) {
       throw new Error(`任务失败: ${msg}`);
     }
     // PENDING / RUNNING → 继续等
-    console.log(`[pollTask] ${taskId} 状态=${status}，第 ${i + 1}/${MAX_POLL} 次轮询`);
+    console.log(`[pollTask] ${taskId} 状态=${status}，第 ${i + 1}/${maxPoll} 次轮询`);
   }
 
-  throw new Error(`任务 ${taskId} 超时（等待超过 ${(MAX_POLL * POLL_INTERVAL) / 1000}s）`);
+  throw new Error(`任务 ${taskId} 超时（等待超过 ${(maxPoll * interval) / 1000}s）`);
 }
 
 // ── 对话（qwen3-max 流式 SSE） ────────────────────────────────

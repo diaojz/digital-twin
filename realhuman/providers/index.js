@@ -2,7 +2,8 @@
  * realhuman/providers/index.js
  *
  * 视频 provider 注册表（契约 §2）：
- *   emo       = 阿里 EMO（DashScope 悦动人像）
+ *   emo       = 阿里 EMO（DashScope 悦动人像，半身对口型）
+ *   wans2v    = 阿里 万相全身（DashScope wan2.2-s2v，全身照+肢体动作，与 emo 共用 key）
  *   omnihuman = 字节 OmniHuman（火山引擎，AK/SK 签名）
  *   seedance  = 字节 Seedance 2.0（火山方舟，Bearer key）
  *
@@ -10,14 +11,15 @@
  */
 
 import emo from './emo.js';
+import wans2v from './wans2v.js';
 import omnihuman from './omnihuman.js';
 import seedance from './seedance.js';
 
-export const providers = { emo, omnihuman, seedance };
+export const providers = { emo, wans2v, omnihuman, seedance };
 
 /**
  * 按 id 取 provider，未知 id 直接 throw（调用方决定怎么兜底）
- * @param {string} id  'emo' | 'omnihuman' | 'seedance'
+ * @param {string} id  'emo' | 'wans2v' | 'omnihuman' | 'seedance'
  */
 export function getProvider(id) {
   const p = providers[id];

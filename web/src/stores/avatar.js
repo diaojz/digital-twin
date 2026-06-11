@@ -17,6 +17,8 @@ export const useAvatarStore = defineStore('avatar', () => {
   const speakLibItems = ref([]);
   // 聊天页快捷 chips（当前形象 + provider 过滤后的话术库条目）
   const quickChips = ref([]);
+  // 舞台字幕：全身 provider（wans2v）播放时正在说的话，悬浮人物下方（AvatarStage 渲染）
+  const caption = ref('');
 
   function applyFigure(fig) {
     // fig: {localImage?, imageUrl, version?, source?}

@@ -58,10 +58,15 @@ export function useChatStream({ videoEl, toast, showStatic, showVideo }) {
 
     let genTimer = null;
     if (mayGenVideo) {
+      // 进度文案按当前 provider：万相全身（wans2v）官方 5-10 分钟，EMO 通常 40-60 秒
+      const isS2V = settingsStore.videoProvider === 'wans2v';
+      const genName = isS2V ? '万相全身视频' : 'EMO';
+      const genHint = isS2V ? '官方约 5-10 分钟，短句更快' : '通常 40-60 秒';
       let gt0 = Date.now();
       genTimer = setInterval(() => {
         const sec = Math.round((Date.now() - gt0) / 1000);
-        document.dispatchEvent(new CustomEvent('gen-progress', { detail: `EMO 生成视频中… 已 ${sec} 秒（通常 40-60 秒）` }));
+        const elapsed = sec >= 90 ? `${Math.floor(sec / 60)} 分 ${sec % 60} 秒` : `${sec} 秒`;
+        document.dispatchEvent(new CustomEvent('gen-progress', { detail: `${genName}生成中… 已 ${elapsed}（${genHint}）` }));
       }, 500);
     }
     const clearGenTimer = () => { if (genTimer) { clearInterval(genTimer); genTimer = null; } };
@@ -87,10 +92,12 @@ export function useChatStream({ videoEl, toast, showStatic, showVideo }) {
         }
         chatStore.setState('speak');
         showVideo(data.videoUrl);
+        avatarStore.caption = data.matchedText || reply;   // 全身模式：字幕悬浮人物下方（AvatarStage 按 provider 决定显隐）
         await waitVideoEnd(videoEl.value);
       } else if (data.audioUrl) {
         chatStore.setState('speak');
         showStatic();
+        avatarStore.caption = reply;                       // 静态形象也挂字幕，提示在「说」这句
         await playAudio(data.audioUrl);
       } else {
         throw new Error(data.error || '语音合成失败');

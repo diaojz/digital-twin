@@ -21,7 +21,7 @@ export const PERSONAS = {
 };
 
 // provider 徽章短名
-export const PROVIDER_BADGE = { emo: 'EMO', omnihuman: 'OmniHuman', seedance: 'Seedance' };
+export const PROVIDER_BADGE = { emo: 'EMO', wans2v: '万相全身', omnihuman: 'OmniHuman', seedance: 'Seedance' };
 
 export const useSettingsStore = defineStore('settings', () => {
   // 音色

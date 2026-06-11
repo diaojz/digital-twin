@@ -84,6 +84,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 @keyframes spin{to{transform:rotate(360deg)}}
 .gen-mask .gt{font-size:13px;font-weight:700;}
 .gen-mask .gs{font-size:11px;opacity:.85;line-height:1.5;}
+/* ===== 全身 provider（wan2.2-s2v）舞台增强 ===== */
+/* 舞台拉高成竖版，人物 contain 完整入镜（不再 cover 裁头）；两侧留白透出舞台渐变底 */
+.stage.s2v{height:460px;}
+.stage.s2v .figure-img,.stage.s2v .figure-video{object-fit:contain;}
+/* 字幕浮层：正在说的话悬浮在人物下方，渐变透明蒙版垫底（视频/语音播放时显示） */
+.stage-caption{position:absolute;left:0;right:0;bottom:0;z-index:5;display:none;
+  padding:46px 22px 16px;text-align:center;color:#fff;font-size:13.5px;line-height:1.6;font-weight:600;
+  background:linear-gradient(180deg,transparent,rgba(40,28,70,.45) 42%,rgba(40,28,70,.68));
+  text-shadow:0 1px 5px rgba(40,28,70,.55);}
+.stage-caption.on{display:block;}
 
 /* ===== 对话气泡 ===== */
 .chat{flex:1;display:flex;flex-direction:column;gap:8px;overflow-y:auto;padding:2px 2px 6px;scrollbar-width:none;}

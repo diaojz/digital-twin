@@ -7,7 +7,9 @@
       <div class="ri">🎬</div>
       <div class="rt">
         <div class="t1">对话时生成对口型</div>
-        <div class="t2">开：每句现场生成嘴型(慢~40s)；关：对话只用缓存视频+语音，更流畅</div>
+        <div class="t2">{{ settingsStore.videoProvider === 'wans2v'
+          ? '开：每句现场生成全身动作视频(约5-10分钟，须<70字)；关：对话只用缓存视频+语音，更流畅'
+          : '开：每句现场生成嘴型(慢~40s)；关：对话只用缓存视频+语音，更流畅' }}</div>
       </div>
       <div class="toggle" :class="{ on: settingsStore.lipsyncInChat }"></div>
     </div>
@@ -104,11 +106,16 @@ async function onLipsyncGen() {
 
   lipsyncGenerating.value = true;
   lipsyncProgress.value = 0;
-  const startT = Date.now(), EST = 50000;
+  // 进度估算按当前 provider：万相全身官方约 5-10 分钟（短句更快），EMO 通常 40-60 秒
+  const isS2V = settingsStore.videoProvider === 'wans2v';
+  const startT = Date.now(), EST = isS2V ? 480000 : 50000;
+  const hint = isS2V ? '官方约 5-10 分钟，短句更快' : '通常 40-60 秒';
   const timer = setInterval(() => {
     const el = Date.now() - startT;
     lipsyncProgress.value = Math.min(95, (el / EST) * 100);
-    lipsyncProgressText.value = `生成中… 已 ${Math.round(el / 1000)} 秒（通常 40-60 秒）`;
+    const sec = Math.round(el / 1000);
+    const elapsed = sec >= 90 ? `${Math.floor(sec / 60)} 分 ${sec % 60} 秒` : `${sec} 秒`;
+    lipsyncProgressText.value = `生成中… 已 ${elapsed}（${hint}）`;
   }, 500);
 
   try {
@@ -151,7 +158,7 @@ async function refreshSpeakLib() {
 defineExpose({ refreshSpeakLib });
 
 function onPlay(it) {
-  props.playVideo(it.path);
+  props.playVideo(it.path, it.text);
 }
 
 async function onDelete(it) {

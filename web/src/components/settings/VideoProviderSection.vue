@@ -1,6 +1,6 @@
 <template>
-  <!-- 视频生成后端三选一 -->
-  <div class="seg">🎛️ 视频生成后端（对口型三选一）</div>
+  <!-- 视频生成后端四选一 -->
+  <div class="seg">🎛️ 视频生成后端（对口型四选一）</div>
   <div class="segbtns" style="flex-wrap:wrap;">
     <template v-if="settingsStore.videoProviders.length === 0">
       <div style="font-size:11px;color:var(--ink-faint);padding:4px 2px;">加载中…</div>

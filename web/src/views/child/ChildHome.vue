@@ -159,10 +159,16 @@
           </div>
 
           <div class="seg">上传我的照片做形象</div>
-          <input type="file" ref="photoFileRef" accept="image/*" style="display:none;" @change="onPhotoChange">
-          <button class="btn" ref="uploadPhotoBtnRef" @click="photoFileRef.click()">📷 上传照片（对口型视频用这张脸）</button>
+          <!-- 上传用 label 原生触发 file input：Safari 对 display:none 的 input 做 JS .click()
+               会静默忽略，所以 input 用「视觉隐藏」而非 display:none，按钮用 label 包裹原生联动 -->
+          <label class="btn" style="cursor:pointer;">
+            📷 上传照片（对口型视频用这张脸）
+            <input type="file" ref="photoFileRef" accept="image/*"
+                   style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0);"
+                   @change="onPhotoChange">
+          </label>
           <div class="card" style="margin-top:10px;padding:11px 14px;">
-            <div style="font-size:11px;color:var(--ink-faint);line-height:1.6;">照片要求：单人、正面、五官清晰、无遮挡，jpg/png 均可，最短边 ≥ 400 像素。</div>
+            <div style="font-size:11px;color:var(--ink-faint);line-height:1.6;">照片要求：单人、正面、五官清晰、无遮挡，jpg/png 均可，最短边 ≥ 400 像素。用「阿里 万相全身」后端时支持<b>全身照</b>（带肢体动作），半身/肖像也行。</div>
           </div>
 
           <div class="seg">提示词生成新形象</div>
@@ -294,6 +300,9 @@ const generatingFigure = ref(false);
 const figureTpls = [
   { label: '👩 温柔女性', prompt: '一位温柔治愈的年轻亚洲女性，正面肖像，清晰五官，柔和自然微笑，简洁柔光纯色背景，写实摄影风格，高质量' },
   { label: '👨 阳光男性', prompt: '一位阳光干净的年轻亚洲男性，正面肖像，清晰五官，自然微笑，简洁柔光纯色背景，写实摄影风格，高质量' },
+  // 全身模板：配合「阿里 万相全身」后端，生成的视频带肢体/手部动作
+  { label: '🧍‍♀️ 全身女性', prompt: '一位温柔治愈的年轻亚洲女性，全身站立照，身体完整入镜含手部，自然站姿微笑，简洁柔光纯色背景，写实摄影风格，高质量' },
+  { label: '🧍 全身男性', prompt: '一位阳光干净的年轻亚洲男性，全身站立照，身体完整入镜含手部，自然站姿微笑，简洁柔光纯色背景，写实摄影风格，高质量' },
 ];
 
 // ── C2/C5 数据 ──
@@ -498,6 +507,7 @@ function handlePlayLibEntry(it) {
   chatStore.addBubble('ai', it.text);
   chatStore.setState('speak');
   showVideo(it.path);
+  avatarStore.caption = it.text;   // 全身模式：字幕悬浮人物下方（showStatic 时自动收起）
   const v = avatarStageRef.value?.figureVideoEl?.value;
   if (v) {
     waitVideoEnd(v).then(() => {
@@ -507,9 +517,10 @@ function handlePlayLibEntry(it) {
   }
 }
 
-function playVideoFromLib(path) {
+function playVideoFromLib(path, text) {
   tab.value = 'chat';
   showVideo(path);
+  avatarStore.caption = text || '';
   const v = avatarStageRef.value?.figureVideoEl?.value;
   if (v) {
     const onEnd = () => { v.removeEventListener('ended', onEnd); v.removeEventListener('error', onEnd); showStatic(); };
