@@ -13,7 +13,22 @@
 ![Ollama](https://img.shields.io/badge/LLM-Ollama%20%2F%20Gateway-6B5EF6?style=flat-square)
 ![License](https://img.shields.io/badge/Course%20Project-MVP%200--6-111827?style=flat-square)
 
-<!-- TODO: 换成小忆真人版界面截图（docs/assets/ 下旧图是早期城北版界面，已不匹配当前 UI） -->
+<br>
+
+<table>
+<tr>
+<td align="center" width="50%">
+<img src="docs/screenshots/lipsync-demo.gif" width="230" alt="对口型说话视频演示"><br>
+<sub><b>📹 对口型说话</b>：一张照片 + 一句话 → 开口说话的视频<br>（阿里百炼 EMO 真实生成效果）</sub>
+</td>
+<td align="center" width="50%">
+<img src="docs/screenshots/parent-help-flow.gif" width="230" alt="父母端求助闭环演示"><br>
+<sub><b>💬 父母端实录</b>：妈妈打字求助 → AI 流式秒回保底答案<br>→ ✓ 自动转给子女收件箱</sub>
+</td>
+</tr>
+</table>
+
+<sub>真实运行录屏 · 截图中的人物形象均为 AI 文生图生成的演示形象，「小婷 / 妈」为演示数据</sub>
 
 </div>
 
@@ -202,6 +217,7 @@ digital-twin/
 │   ├── index.legacy.html             # 旧版单文件前端（对照保留，dist/ 缺失时自动兜底）
 │   └── avatars/                      # 形象图 + 对口型视频本地缓存（gitignore）
 ├── docs/
+│   ├── screenshots/                  # README 用的真实运行截图与录屏 GIF
 │   ├── PRD.md                        # 真人版产品规范
 │   ├── 高保真设计稿.html              # 关怀岛屿紫色风视觉稿
 │   ├── 调研报告-数字人与TTS方案-2026.06.md
@@ -423,6 +439,20 @@ node scripts/test-video-provider.js omnihuman --real
 ## 两端版（子女端 × 父母端）
 
 到这里你玩的都是「单端 Demo」——一个人对着小忆聊天。**两端版**把它变成一款家庭产品：**子女**用照片建好分身、配好常用话术，把链接发给**父母**；父母平时跟分身聊天、遇事一句话求助，子女在自己这端用**自己的原声**录一段，云端拿父母原始那条求助、连同子女录的音生成**对口型回信视频**，回到父母端播放。一套代码、两个入口、两个口令。
+
+### 一图看懂 F4 求助闭环（真实运行截图）
+
+| 1️⃣ 父母端：一句话求助 | 2️⃣ 子女端：收件箱 | 3️⃣ 子女端：原声回信 | 4️⃣ 父母端：收到回信 |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/screenshots/parent-help.png" width="185" alt="父母端求助"> | <img src="docs/screenshots/child-inbox.png" width="185" alt="子女端收件箱"> | <img src="docs/screenshots/child-reply.png" width="185" alt="子女端录音回信"> | <img src="docs/screenshots/parent-letter.png" width="185" alt="父母端回信视频"> |
+| AI 先给保底答案，<br>✓ 自动转给子女 | 求助带状态机角标，<br>超 4 小时自动提醒 | 按住录一段原声，<br>不经 TTS 直驱对口型 | 本人脸 + 本人声的<br>对口型视频，金徽章标记 |
+
+### 两端界面一览
+
+| 父母端 P1 告知页 | 父母端 P2 大字陪聊 | 子女端 C1 分身工坊 | 子女端 C4 话术库 | 子女端 C5 家庭与成本 |
+|:---:|:---:|:---:|:---:|:---:|
+| <img src="docs/screenshots/parent-onboard.png" width="150" alt="父母端告知页"> | <img src="docs/screenshots/parent-chat.png" width="150" alt="父母端大字陪聊"> | <img src="docs/screenshots/child-workshop.png" width="150" alt="子女端分身工坊"> | <img src="docs/screenshots/child-speaklib.png" width="150" alt="子女端话术库与三路 provider"> | <img src="docs/screenshots/child-family.png" width="150" alt="子女端家庭与成本页"> |
+| 欢迎视频 + 三句话<br>讲明白这是什么 | 正文 ≥20px 适老化，<br>🎬 chips 秒播视频 | 形象 / 性格 / 音色 /<br>画幅一站式配置 | 预生成对口型视频，<br>三路 provider 热切换 | 成员邀请 + 本月<br>视频秒数额度护栏 |
 
 ### 两个入口（hash 路由）
 
