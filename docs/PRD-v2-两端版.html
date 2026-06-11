@@ -72,17 +72,18 @@ h1, h2 { font-family: 'Playfair Display', 'Songti SC', serif; font-weight: 900; 
 .tldr-list li { display: flex; align-items: flex-start; gap: 12px; font-size: .89rem; line-height: 1.6; }
 .tldr-num { font-family: 'JetBrains Mono', monospace; font-size: .72rem; font-weight: 700; min-width: 22px; height: 22px; border-radius: 6px; background: var(--text); color: #fff; display: flex; align-items: center; justify-content: center; margin-top: 3px; flex-shrink: 0; }
 
-/* CSS 流程图 */
-.flow { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; margin: 6px 0; }
-.flow .fnode { background: var(--card-alt); border: 1px solid var(--border-light); border-radius: 12px; padding: 10px 14px; font-size: .78rem; line-height: 1.45; flex: 1; min-width: 120px; position: relative; }
-.flow .fnode b { display: block; font-size: .8rem; color: var(--text); margin-bottom: 2px; }
-.flow .fnode small { color: var(--text-dim); }
-.flow .farrow { display: flex; align-items: center; padding: 0 8px; color: var(--text-dim); font-weight: 700; flex: none; font-size: .9rem; }
-.fnode.f-parent { border-left: 4px solid var(--blue); }
-.fnode.f-ai { border-left: 4px solid var(--purple); }
-.fnode.f-child { border-left: 4px solid var(--green); }
-.fnode.f-sys { border-left: 4px solid var(--yellow); }
+/* mermaid 图卡 + 点击放大灯箱 */
+.diagram-card { position: relative; cursor: zoom-in; background: var(--card); border: var(--border-card); border-top: 1px solid rgba(255,250,240,.7); border-radius: 16px; padding: 18px 18px 14px; box-shadow: var(--shadow-card); text-align: center; overflow: auto; margin-top: 6px; }
+.diagram-card .mermaid { min-height: 40px; }
+.diagram-card .mermaid:not([data-processed]) { visibility: hidden; }
+.diagram-card svg { max-width: 100%; height: auto; }
+.diagram-card::after { content: '🔍 点击放大'; position: absolute; top: 10px; right: 14px; font-family: 'JetBrains Mono', monospace; font-size: .66rem; color: var(--text-dim); background: var(--card-alt); border: 1px solid var(--border-light); padding: 2px 10px; border-radius: 8px; pointer-events: none; }
 .flow-legend { font-size: .7rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; margin-top: 10px; }
+.lightbox { position: fixed; inset: 0; z-index: 1000; background: rgba(28,22,14,.86); display: none; align-items: center; justify-content: center; cursor: zoom-out; }
+.lightbox.show { display: flex; }
+.lightbox-inner { background: #fff; border-radius: 14px; padding: 24px; max-width: 96vw; max-height: 94vh; overflow: auto; box-shadow: 0 24px 70px rgba(0,0,0,.45); cursor: default; }
+.lightbox-inner svg { max-width: none !important; height: auto !important; display: block; }
+.lightbox-hint { position: fixed; top: 20px; right: 26px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: .78rem; opacity: .85; }
 
 /* 表格 */
 .tbl { width: 100%; border-collapse: collapse; font-size: .79rem; }
@@ -340,75 +341,97 @@ h1, h2 { font-family: 'Playfair Display', 'Songti SC', serif; font-weight: 900; 
     <div class="bento">
       <div class="card span-3">
         <div class="card-header"><div class="card-icon">🚀</div><div class="card-title">F1 · 子女创建分身（目标：10 分钟完成）</div><span class="card-tag">MVP</span></div>
-        <div class="flow">
-          <div class="fnode f-child"><b>上传正面照</b><small>人脸检测不过→换图指引</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-child"><b>录 30 秒声音</b><small>读引导文案，复刻音色（V1）；MVP 先选预置音色</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-child"><b>填人设卡</b><small>称呼/口头禅/家庭常识（爸妈叫什么、家在哪、忌讳话题）</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-ai"><b>预生成话术包</b><small>10 条常用问候批量入话术库（一次性成本 ~50 元）</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-child"><b>试看确认</b><small>子女亲自看一条「像不像我」，确认后才可邀请</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-sys"><b>发邀请</b><small>微信发「带口令链接」给父母</small></div>
-        </div>
+        <div class="diagram-card"><div class="mermaid">
+flowchart LR
+  classDef child fill:#d8efe1,stroke:#2d8a56,color:#143d28;
+  classDef ai fill:#ece0f7,stroke:#7c3aad,color:#3d1a5e;
+  classDef sys fill:#faf0d8,stroke:#b8860b,color:#5a3c08;
+  A["📷 上传正面照"]:::child --> B{"人脸检测<br/>通过?"}:::sys
+  B -->|"否"| B2["换图指引<br/>单人/正面/五官清晰"]:::sys --> A
+  B -->|"是"| C["🎙 录 30 秒声音<br/>复刻音色 V1 · MVP 用预置"]:::child
+  C --> D["📝 填人设卡<br/>称呼/口头禅/家庭常识/禁区话题"]:::child
+  D --> E["⚙️ 预生成话术包<br/>10 条问候 · 一次性 ≈50 元"]:::ai
+  E --> F{"子女试看<br/>像不像我?"}:::child
+  F -->|"不像 → 换照片重来"| A
+  F -->|"确认"| G["📨 微信发邀请链接<br/>口令内嵌 · 父母免输入"]:::sys
+        </div><div class="flow-legend">绿 = 子女操作 · 紫 = AI 生成 · 黄 = 平台动作 —— 两个质检关卡：人脸检测 + 子女亲自确认「像」</div></div>
       </div>
       <div class="card span-3">
         <div class="card-header"><div class="card-icon">🏝</div><div class="card-title">F2 · 父母首次进入（目标：3 步内开口说上话）</div><span class="card-tag">MVP</span></div>
-        <div class="flow">
-          <div class="fnode f-parent"><b>微信点链接</b><small>口令在链接里，免输入</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-sys"><b>诚实告知页</b><small>「这是小军为您做的分身助手」+ 子女预录的一条欢迎视频（话术库）</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-parent"><b>主屏开聊</b><small>大麦克风 + 3 张话题卡兜底「不知道说啥」</small></div>
-        </div>
+        <div class="diagram-card"><div class="mermaid">
+flowchart LR
+  classDef parent fill:#dbe9f7,stroke:#2563a8,color:#143055;
+  classDef ai fill:#ece0f7,stroke:#7c3aad,color:#3d1a5e;
+  classDef sys fill:#faf0d8,stroke:#b8860b,color:#5a3c08;
+  P1["📱 微信点开链接<br/>口令内嵌 · 零输入零注册"]:::parent --> P2["🤝 诚实告知页 · 不可跳过<br/>这是小军为您做的分身助手"]:::sys
+  P2 --> P3["▶️ 播放子女欢迎视频<br/>『妈，想我了就打开这个』<br/>F1 阶段已预生成"]:::ai
+  P3 --> P4["🏝 主屏开聊<br/>大麦克风 + 3 张话题卡兜底"]:::parent
+  P4 -.->|"二次进入直达主屏"| P4
+        </div><div class="flow-legend">蓝 = 父母 · 紫 = AI/分身 · 黄 = 平台 —— 告知页只在首次出现，再次进入直达主屏</div></div>
         <div class="callout c-blue" style="margin-top:10px">📌 首次体验的成败手筋：<strong>欢迎视频必须是真话术</strong>（「妈，以后想我了就打开这个，我让它替我陪你聊聊」）——这一条视频在 F1 就预生成好，是父母对产品建立心智的全部依据。</div>
       </div>
       <div class="card span-3">
         <div class="card-header"><div class="card-icon">💬</div><div class="card-title">F3 · 日常陪聊（高频主路径，必须秒回）</div><span class="card-tag">MVP</span></div>
-        <div class="flow">
-          <div class="fnode f-parent"><b>开口说话</b><small>ASR 转文字（dashscope）</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-ai"><b>LLM 生成回复</b><small>人设 prompt + 记忆库上下文</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-ai"><b>话术库三层命中？</b><small>命中→秒播对口型视频</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-ai"><b>未命中→流畅模式</b><small>复刻音色 TTS 秒回 + 静态形象微动效</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-sys"><b>记忆沉淀</b><small>写记忆库；情绪/健康关键词→触发 F5 告警</small></div>
-        </div>
+        <div class="diagram-card"><div class="mermaid">
+flowchart LR
+  classDef parent fill:#dbe9f7,stroke:#2563a8,color:#143055;
+  classDef ai fill:#ece0f7,stroke:#7c3aad,color:#3d1a5e;
+  classDef sys fill:#faf0d8,stroke:#b8860b,color:#5a3c08;
+  classDef hot fill:#d8efe1,stroke:#2d8a56,color:#143d28;
+  A["🎤 父母开口说话"]:::parent -->|"ASR 转文字"| B{"🧠 意图分类<br/>S-1"}:::ai
+  B -->|"求助"| F4["进入 F4 流程"]:::sys
+  B -->|"健康/情绪风险"| F5["触发 F5 告警"]:::sys
+  B -->|"闲聊"| C["LLM 生成回复<br/>人设 prompt + 记忆上下文"]:::ai
+  C --> D{"话术库<br/>三层命中?"}:::ai
+  D -->|"命中"| E["🎬 秒播对口型视频<br/>成本 ≈ 0 · ≤1.5s 开播"]:::hot
+  D -->|"未命中"| G["🔊 流畅模式<br/>TTS 秒回 + 静态形象 · ≤3s"]:::hot
+  E --> H["💾 记忆沉淀"]:::sys
+  G --> H
+        </div><div class="flow-legend">蓝 = 父母 · 紫 = AI · 绿 = 秒回出口（两条都必须 ≤3s）· 黄 = 平台 —— 意图分类是 F3/F4/F5 的总路由</div></div>
       </div>
       <div class="card span-3" style="border: 1.5px solid var(--green);">
         <div class="card-header"><div class="card-icon">💌</div><div class="card-title">F4 · 求助转真人闭环（核心差异化，产品的灵魂）</div><span class="card-tag">MVP</span></div>
-        <div class="flow">
-          <div class="fnode f-parent"><b>父母求助</b><small>「电视没声音了怎么弄」</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-ai"><b>意图识别=求助</b><small>LLM 分类：求助/闲聊/情绪</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-ai"><b>AI 先接住</b><small>给初步答案 +「我再帮你问问小军本人哈」</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-sys"><b>进子女收件箱</b><small>原文 + AI 代答内容一起推送</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-child"><b>子女语音回一条</b><small>30 秒内说完，可补充/纠正 AI 的答案</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-ai"><b>转对口型视频</b><small>子女原声直接驱动（不经 TTS），分钟级生成</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-parent"><b>父母收到「回信」</b><small>💌 本人标识 + 全屏播放 + 再听一遍</small></div>
-        </div>
+        <div class="diagram-card"><div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant P as 👵 父母端
+  participant A as 🤖 分身 AI
+  participant S as ⚙️ 平台
+  participant C as 👨‍💻 子女端
+  P->>A: 「电视没声音了怎么弄」
+  A->>A: 意图分类 = 求助类（S-1）
+  A-->>P: 初步答案（2 步排查）+「我再帮你问问小军本人哈」
+  Note over P: 父母已有保底答案，等待无焦虑
+  A->>S: 原文 + AI 代答 → 写入收件箱（inbox_message）
+  S->>C: 推送（MVP 角标 · V1 微信服务号）
+  Note over C: 子女在碎片时间打开收件箱
+  C->>S: 🎤 按住录音回复 ≤60s（可纠正 AI 答案）
+  S->>S: 子女原声直驱对口型视频（不经 TTS · ≤5min P90）
+  S-->>C: 状态：生成中 → 已送达
+  S->>P: 💌 横幅「小军给您回信了」
+  P->>P: 全屏播放 + 「本人回复」金徽章 + 再听一遍
+  S-->>C: 状态：妈妈已看 👀
+        </div><div class="flow-legend">超时保护：子女 4h 未回 → 自动追加提醒；视频生成失败重试 1 次后 → 降级纯语音送达（S-2）</div></div>
         <div class="callout c-green" style="margin-top:10px">🔑 注意工程要点：子女语音回复<strong>用原声驱动对口型（音频直接进 EMO/OmniHuman），不经过 TTS</strong>——这条链路里「声音 100% 是真的」，只有画面是生成的，体验上限远高于纯 AI 链路，且完全复用现有 speak 管线（音频 URL 换个来源而已）。</div>
       </div>
       <div class="card span-3">
         <div class="card-header"><div class="card-icon">🚨</div><div class="card-title">F5 · 关怀告警（被动安全网）</div><span class="card-tag">MVP-Lite / V1 完整</span></div>
-        <div class="flow">
-          <div class="fnode f-ai"><b>触发识别</b><small>① 情绪持续低落 ② 健康不适表述（「头晕」「摔了」）③ 连续 N 天未打开</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-sys"><b>分级</b><small>紧急（健康类）→ 立即；一般（情绪/沉默）→ 当日摘要</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-child"><b>通知子女</b><small>MVP：收件箱置顶+角标；V1：微信服务号模板消息</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-child"><b>建议动作</b><small>「给妈打个真电话吧」——告警的正确出口是真人联系，不是让 AI 加倍安抚</small></div>
-        </div>
+        <div class="diagram-card"><div class="mermaid">
+flowchart LR
+  classDef ai fill:#ece0f7,stroke:#7c3aad,color:#3d1a5e;
+  classDef sys fill:#faf0d8,stroke:#b8860b,color:#5a3c08;
+  classDef child fill:#d8efe1,stroke:#2d8a56,color:#143d28;
+  classDef urgent fill:#f9d6d9,stroke:#c93545,color:#5a1a22;
+  M["对话流持续监测"]:::ai --> T1["🤕 健康不适表述<br/>『头晕』『摔了』"]:::urgent
+  M --> T2["😞 情绪持续低落<br/>趋势 ≥3 天"]:::ai
+  M --> T3["📵 连续 N 天未打开"]:::sys
+  T1 --> L1{"紧急级"}:::urgent
+  T2 --> L2{"一般级"}:::sys
+  T3 --> L2
+  L1 -->|"立即推送"| N["通知子女<br/>MVP 收件箱置顶+角标<br/>V1 微信服务号"]:::sys
+  L2 -->|"并入当日摘要"| N
+  N --> ACT["📞 建议动作：给妈打个真电话<br/>告警出口 = 真人联系<br/>不是让 AI 加倍安抚"]:::child
+        </div><div class="flow-legend">红 = 紧急触发 · 紫 = AI 监测 · 黄 = 平台分级 · 绿 = 子女动作 —— 隐私边界：告警只暴露触发句，不暴露聊天全文（R1）</div></div>
       </div>
     </div>
   </div>
@@ -507,6 +530,21 @@ h1, h2 { font-family: 'Playfair Display', 'Songti SC', serif; font-weight: 900; 
           <li><strong>V2：多家庭 SaaS</strong>——正式账号体系、家庭隔离审计、付费墙</li>
         </ul>
         <div class="callout" style="margin-top:10px">🚧 口令即身份的安全边界：链接外泄=陌生人能跟分身聊天并烧生成费。缓解：单家庭月生成额度上限 + 异常调用告警 + 一键换口令（已有机制）。MVP 自家使用可接受，<strong>对外发放前必须升级 V1 认证</strong>。</div>
+      </div>
+      <div class="card span-3">
+        <div class="card-header"><div class="card-icon">🔄</div><div class="card-title">收件箱消息状态机（inbox_message.status · F4/C-5 的工程承载）</div></div>
+        <div class="diagram-card"><div class="mermaid">
+stateDiagram-v2
+  direction LR
+  [*] --> 待回复 : 求助进箱（AI 已代答垫底）
+  待回复 --> 待回复 : 子女 4h 未回 → 自动追加提醒
+  待回复 --> 生成中 : 子女录音提交（≤60s 原声）
+  生成中 --> 已送达 : 对口型视频生成成功（≤5min P90）
+  生成中 --> 语音送达 : 重试 1 次仍失败 / 超 10min → 降级纯语音
+  已送达 --> 已查看 : 父母播放回信（💌 横幅点开）
+  语音送达 --> 已查看 : 父母收听
+  已查看 --> [*] : 闭环完成（记录 F4 闭环时长指标）
+        </div><div class="flow-legend">每个状态变更同步两端：子女端 stepper（C-5）实时展示 · 父母端只见「回信到了」不见中间技术态 —— 告警类(alert)与留言类(leave_word)消息不走「生成中」分支，仅 待回复 → 已查看</div></div>
       </div>
     </div>
   </div>
@@ -607,18 +645,39 @@ h1, h2 { font-family: 'Playfair Display', 'Songti SC', serif; font-weight: 900; 
       </div>
       <div class="card span-3 alt">
         <div class="card-header"><div class="card-icon">🗺</div><div class="card-title">两端架构总览</div></div>
-        <div class="flow">
-          <div class="fnode f-parent"><b>父母端 /parent</b><small>微信 H5 · 大字主题 · 语音主交互</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-sys"><b>Express /api/*</b><small>口令/家庭中间件 · 意图分类 · 收件箱 · 额度护栏</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-ai"><b>能力层</b><small>qwen3-max / CosyVoice(+复刻) / ASR / 记忆库 / 话术库缓存</small></div>
-          <div class="farrow">→</div>
-          <div class="fnode f-ai"><b>视频 provider</b><small>emo · omnihuman · seedance（可插拔，已实现）</small></div>
-          <div class="farrow">←</div>
-          <div class="fnode f-child"><b>子女端 /child</b><small>分身工坊 · 话术库 · 收件箱 · 家庭管理 · 成本</small></div>
-        </div>
-        <div class="flow-legend">单仓单服务不变：两端是同一 Vue 工程的两个路由入口 + 同一 Express 的角色化中间件——MVP 不引入任何新基础设施</div>
+        <div class="diagram-card"><div class="mermaid">
+flowchart LR
+  classDef parent fill:#dbe9f7,stroke:#2563a8,color:#143055;
+  classDef child fill:#d8efe1,stroke:#2d8a56,color:#143d28;
+  classDef sys fill:#faf0d8,stroke:#b8860b,color:#5a3c08;
+  classDef ai fill:#ece0f7,stroke:#7c3aad,color:#3d1a5e;
+  classDef prov fill:#fde8d8,stroke:#e8682a,color:#5a2508;
+  subgraph FE["Vue 3 工程 · 同一仓库两个路由入口"]
+    P["/parent 父母端<br/>微信 H5 · 大字 · 语音主交互"]:::parent
+    C["/child 子女端<br/>工坊 · 收件箱 · 家庭 · 成本"]:::child
+  end
+  subgraph BE["Express 单服务（现有 server.js 演进）"]
+    MW["口令/家庭中间件<br/>child_code · parent_code"]:::sys
+    API["意图分类 S-1 · 收件箱<br/>额度护栏 S-3 · 降级链 S-2"]:::sys
+  end
+  subgraph CAP["能力层（全部已有 ✅）"]
+    LLM["qwen3-max"]:::ai
+    TTS["CosyVoice<br/>+复刻 V1"]:::ai
+    ASR["qwen3-asr"]:::ai
+    MEM["记忆库<br/>SQLite"]:::ai
+    CACHE["话术库缓存<br/>family+figVer+provider"]:::ai
+  end
+  subgraph VP["视频 provider · 可插拔（已实现 ✅）"]
+    E2["emo"]:::prov
+    O["omnihuman"]:::prov
+    SD["seedance"]:::prov
+  end
+  P -->|"语音/求助"| MW
+  C -->|"管理/回信"| MW
+  MW --> API
+  API --> LLM & TTS & ASR & MEM & CACHE
+  API -->|"回信/话术生成"| VP
+        </div><div class="flow-legend">单仓单服务不变：MVP 不引入任何新基础设施 —— 蓝/绿 = 两端 · 黄 = 服务层（新增三件套）· 紫 = 能力层（复用）· 橙 = provider（复用）</div></div>
       </div>
       <div class="card span-3">
         <div class="card-header"><div class="card-icon">🎬</div><div class="card-title">视频 provider 策略（沿用调研结论，实测仍是前置）</div></div>
@@ -780,7 +839,44 @@ h1, h2 { font-family: 'Playfair Display', 'Songti SC', serif; font-weight: 900; 
 
 </div>
 
+<script src="lib/mermaid.min.js"></script>
 <script>
+if (window.mermaid) {
+  mermaid.initialize({
+    startOnLoad: false, theme: 'base', securityLevel: 'loose',
+    fontFamily: '-apple-system,"PingFang SC","Microsoft YaHei",sans-serif',
+    themeVariables: {
+      background: '#fff', primaryColor: '#f7f4ef', primaryBorderColor: '#e8682a', primaryTextColor: '#1a1a1a',
+      lineColor: '#6b6560', secondaryColor: '#d8efe1', tertiaryColor: '#ece0f7',
+      actorBkg: '#f7f4ef', actorBorder: '#e8682a', actorTextColor: '#1a1a1a', actorLineColor: '#cbbfa9',
+      signalColor: '#6b6560', signalTextColor: '#1a1a1a',
+      noteBkgColor: '#faf0d8', noteBorderColor: '#b8860b', noteTextColor: '#5a3c08'
+    },
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis', nodeSpacing: 38, rankSpacing: 56 },
+    sequence: { useMaxWidth: true, mirrorActors: false, messageFontSize: 12.5, actorFontSize: 14, noteFontSize: 12 },
+    state: { useMaxWidth: true }
+  });
+  try { mermaid.run({ querySelector: '.diagram-card .mermaid' }); } catch (e) { console.warn('mermaid render failed', e); }
+}
+
+// 图卡点击放大灯箱
+const lb = document.createElement('div'); lb.className = 'lightbox';
+lb.innerHTML = '<div class="lightbox-hint">点击空白处 / Esc 关闭 · 可滚动看细节</div><div class="lightbox-inner"></div>';
+document.body.appendChild(lb);
+const lbInner = lb.querySelector('.lightbox-inner');
+function openLb(svg) {
+  const c = svg.cloneNode(true);
+  const vb = svg.viewBox && svg.viewBox.baseVal;
+  const natW = (vb && vb.width) ? vb.width : svg.getBoundingClientRect().width;
+  c.style.maxWidth = 'none'; c.style.width = Math.round(natW * 1.4) + 'px'; c.style.height = 'auto';
+  lbInner.innerHTML = ''; lbInner.appendChild(c); lb.classList.add('show'); lbInner.scrollTop = 0; lbInner.scrollLeft = 0;
+}
+document.querySelectorAll('.diagram-card').forEach(card => {
+  card.addEventListener('click', () => { const svg = card.querySelector('svg'); if (svg) openLb(svg); });
+});
+lb.addEventListener('click', e => { if (!lbInner.contains(e.target)) lb.classList.remove('show'); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && lb.classList.contains('show')) { e.stopPropagation(); lb.classList.remove('show'); } }, true);
+
 document.querySelectorAll('.nav-tag').forEach(tag => {
   tag.addEventListener('click', () => {
     document.querySelectorAll('.nav-tag').forEach(t => t.classList.remove('active'));
