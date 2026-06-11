@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>小忆 · 宣传图 Slides</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #14102a; overflow: hidden; height: 100%; }
+  body { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; -webkit-font-smoothing: antialiased; }
+
+  /* ===== 画布（竖版 1290×2796 = App Store 6.7"）===== */
+  .stage { position: absolute; top: 0; left: 0; width: 1290px; height: 2796px; transform-origin: top left; overflow: hidden; display: none; }
+  .stage.banner { width: 2800px; height: 1575px; }
+  .stage.active { display: block; }
+
+  /* ===== 背景：关怀岛屿 · 夜空渐变 ===== */
+  .bg { position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 1400px 900px at 82% 6%, rgba(255, 226, 160, .16), transparent 55%),
+      radial-gradient(ellipse 1800px 1400px at 14% 96%, rgba(233, 120, 159, .26), transparent 60%),
+      linear-gradient(168deg, #241a4e 0%, #3b2a72 30%, #6b54c0 62%, #a87fd6 84%, #d9a8d8 100%);
+  }
+  .moon { position: absolute; top: 130px; right: 140px; width: 120px; height: 120px; border-radius: 50%;
+    background: radial-gradient(circle at 38% 35%, #fff6dc, #f5dfa0 65%, #e8c878);
+    box-shadow: 0 0 90px 28px rgba(255, 235, 175, .35); }
+  .moon::after { content: ''; position: absolute; top: 6px; left: -14px; width: 104px; height: 104px; border-radius: 50%;
+    background: rgba(59, 42, 114, .92); }   /* 月牙 */
+  .star { position: absolute; border-radius: 50%; background: #fff; opacity: .8; box-shadow: 0 0 14px 3px rgba(255,255,255,.55); }
+
+  /* ===== 文案区 ===== */
+  .copy { position: absolute; top: 230px; left: 0; right: 0; text-align: center; padding: 0 90px; z-index: 5; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 14px; padding: 16px 42px; border-radius: 999px;
+    border: 2px solid rgba(255,255,255,.36); background: rgba(255,255,255,.10); backdrop-filter: blur(6px);
+    color: rgba(255,255,255,.92); font-size: 40px; font-weight: 600; letter-spacing: 6px; margin-bottom: 64px; }
+  .eyebrow.gold { border-color: rgba(240,192,64,.65); color: #ffe9ad; background: rgba(240,192,64,.12); }
+  h1 { color: #fff; font-size: 138px; line-height: 1.22; font-weight: 800; letter-spacing: 4px;
+    text-shadow: 0 6px 40px rgba(30, 18, 70, .45); }
+  h1 .gold { color: #ffd970; }
+  .sub { margin-top: 44px; color: rgba(255,255,255,.78); font-size: 52px; font-weight: 400; letter-spacing: 3px; line-height: 1.5; }
+
+  /* ===== 设备壳 ===== */
+  .phone { position: absolute; left: 50%; transform: translateX(-50%); width: 960px; z-index: 4;
+    border-radius: 150px; padding: 24px; background: linear-gradient(160deg, #241c3e, #0f0b20 70%);
+    box-shadow:
+      inset 0 0 0 3px rgba(255,255,255,.18),
+      0 -10px 80px rgba(255, 240, 210, .12),
+      0 60px 160px rgba(20, 10, 50, .55);
+  }
+  .phone .screen { border-radius: 126px; overflow: hidden; background: #1a1430; position: relative; }
+  .phone .screen img { display: block; width: 100%; height: auto; }
+  .phone .island { position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
+    width: 260px; height: 64px; border-radius: 999px; background: #0c0918; z-index: 3; }
+  .phone-glow { position: absolute; left: 50%; transform: translateX(-50%); width: 1400px; height: 700px;
+    background: radial-gradient(ellipse, rgba(255, 214, 240, .30), transparent 65%); z-index: 3; pointer-events: none; }
+
+  /* 竖版默认手机位：底部出血 */
+  .stage:not(.banner) .phone { top: 980px; }
+  .stage:not(.banner) .phone-glow { top: 820px; }
+
+  /* ===== 封面专属 ===== */
+  .cover h1 { font-size: 172px; letter-spacing: 8px; }
+  .cover .brand { color: rgba(255,255,255,.92); font-size: 56px; letter-spacing: 18px; font-weight: 300; margin-bottom: 70px; }
+  .cover .brand b { font-weight: 800; letter-spacing: 10px; }
+  .cover .phone { top: 1060px; }
+
+  /* ===== 页脚水印 ===== */
+  .footer { position: absolute; bottom: 70px; left: 0; right: 0; text-align: center; z-index: 6;
+    color: rgba(255,255,255,.45); font-size: 34px; letter-spacing: 8px; font-weight: 300; }
+
+  /* ===== 横版 banner ===== */
+  .banner .copyL { position: absolute; left: 150px; top: 50%; transform: translateY(-50%); width: 1080px; z-index: 5; text-align: left; }
+  .banner .copyL .eyebrow { margin-bottom: 56px; }
+  .banner .copyL h1 { font-size: 150px; line-height: 1.25; }
+  .banner .copyL .sub { font-size: 48px; margin-top: 48px; line-height: 1.7; }
+  .banner .moon { top: 100px; right: auto; left: 1080px; width: 100px; height: 100px; }
+  .banner .moon::after { width: 86px; height: 86px; }
+  .banner .fan { position: absolute; right: -40px; top: 0; bottom: 0; width: 1640px; z-index: 4; }
+  .banner .fan .phone { width: 560px; padding: 15px; border-radius: 92px; transform: none; left: auto; }
+  .banner .fan .phone .screen { border-radius: 78px; }
+  .banner .fan .phone .island { width: 152px; height: 38px; top: 17px; }
+  .banner .fan .ph1 { left: 30px; top: 240px; transform: rotate(-7deg); z-index: 4; }
+  .banner .fan .ph2 { left: 540px; top: 120px; z-index: 5; box-shadow: inset 0 0 0 3px rgba(255,255,255,.18), 0 70px 140px rgba(15, 8, 40, .65); }
+  .banner .fan .ph3 { left: 1055px; top: 240px; transform: rotate(7deg); z-index: 4; }
+</style>
+</head>
+<body>
+
+<!-- S1 封面 -->
+<div class="stage cover" data-slide="1">
+  <div class="bg"></div><div class="moon"></div>
+  <div class="copy">
+    <div class="brand"><b>小忆</b> · 家庭数字分身</div>
+    <h1>想孩子了<br><span class="gold">随时见</span></h1>
+    <div class="sub">给爸妈的 AI 陪伴 · 有你的脸，有你的声音</div>
+  </div>
+  <div class="phone-glow"></div>
+  <div class="phone"><div class="screen"><div class="island"></div><img src="raw/p2-home.png"></div></div>
+  <div class="footer">XIAOYI · DIGITAL TWIN</div>
+</div>
+
+<!-- S2 一张照片 -->
+<div class="stage" data-slide="2">
+  <div class="bg"></div><div class="moon"></div>
+  <div class="copy">
+    <div class="eyebrow">👵 父母端</div>
+    <h1>孩子的脸<br>孩子的声音</h1>
+    <div class="sub">一张照片，TA 就一直在这里</div>
+  </div>
+  <div class="phone-glow"></div>
+  <div class="phone"><div class="screen"><div class="island"></div><img src="raw/p1-onboard.png"></div></div>
+  <div class="footer">XIAOYI · DIGITAL TWIN</div>
+</div>
+
+<!-- S3 开口就聊 -->
+<div class="stage" data-slide="3">
+  <div class="bg"></div><div class="moon"></div>
+  <div class="copy">
+    <div class="eyebrow">👵 父母端</div>
+    <h1>开口就聊<br>不用打字</h1>
+    <div class="sub">大字、大按钮，拿起来就会用</div>
+  </div>
+  <div class="phone-glow"></div>
+  <div class="phone"><div class="screen"><div class="island"></div><img src="raw/p2-chat.png"></div></div>
+  <div class="footer">XIAOYI · DIGITAL TWIN</div>
+</div>
+
+<!-- S4 求助 -->
+<div class="stage" data-slide="4">
+  <div class="bg"></div><div class="moon"></div>
+  <div class="copy">
+    <div class="eyebrow">👵 父母端</div>
+    <h1>问什么<br>都有人接</h1>
+    <div class="sub">答不上的，自动转给孩子本人</div>
+  </div>
+  <div class="phone-glow"></div>
+  <div class="phone"><div class="screen"><div class="island"></div><img src="raw/p3-help.png"></div></div>
+  <div class="footer">XIAOYI · DIGITAL TWIN</div>
+</div>
+
+<!-- S5 回信 -->
+<div class="stage" data-slide="5">
+  <div class="bg"></div><div class="moon"></div>
+  <div class="copy">
+    <div class="eyebrow gold">💌 真人回信</div>
+    <h1>孩子本人的回信<br><span class="gold">带着脸和声音</span></h1>
+    <div class="sub">你的一条语音，变成你对爸妈说的话</div>
+  </div>
+  <div class="phone-glow"></div>
+  <div class="phone"><div class="screen"><div class="island"></div><img src="raw/p4-letter.png"></div></div>
+  <div class="footer">XIAOYI · DIGITAL TWIN</div>
+</div>
+
+<!-- S6 子女端工坊 -->
+<div class="stage" data-slide="6">
+  <div class="bg"></div><div class="moon"></div>
+  <div class="copy">
+    <div class="eyebrow">👨‍💻 子女端</div>
+    <h1>10 分钟<br>给爸妈一个「你」</h1>
+    <div class="sub">上传照片、定好性格，分身替你陪着</div>
+  </div>
+  <div class="phone-glow"></div>
+  <div class="phone"><div class="screen"><div class="island"></div><img src="raw/c1-workshop.png"></div></div>
+  <div class="footer">XIAOYI · DIGITAL TWIN</div>
+</div>
+
+<!-- S7 收件箱 -->
+<div class="stage" data-slide="7">
+  <div class="bg"></div><div class="moon"></div>
+  <div class="copy">
+    <div class="eyebrow">👨‍💻 子女端</div>
+    <h1>碎片时间<br>回一条暖一天</h1>
+    <div class="sub">求助、告警、想念，一个收件箱接住</div>
+  </div>
+  <div class="phone-glow"></div>
+  <div class="phone"><div class="screen"><div class="island"></div><img src="raw/c2-inbox.png"></div></div>
+  <div class="footer">XIAOYI · DIGITAL TWIN</div>
+</div>
+
+<!-- S8 隐私 -->
+<div class="stage" data-slide="8">
+  <div class="bg"></div><div class="moon"></div>
+  <div class="copy">
+    <div class="eyebrow">🔒 隐私边界</div>
+    <h1>日常聊天<br>只属于爸妈</h1>
+    <div class="sub">子女只看到求助与摘要 · 成本透明可控</div>
+  </div>
+  <div class="phone-glow"></div>
+  <div class="phone"><div class="screen"><div class="island"></div><img src="raw/c5-family.png"></div></div>
+  <div class="footer">XIAOYI · DIGITAL TWIN</div>
+</div>
+
+<!-- 横版总览 banner -->
+<div class="stage banner" data-slide="banner">
+  <div class="bg"></div><div class="moon"></div>
+  <div class="copyL">
+    <div class="eyebrow gold">小忆 · 家庭数字分身</div>
+    <h1>想孩子了<br><span class="gold">随时见</span></h1>
+    <div class="sub">有你的脸、你的声音的 AI 陪伴<br>闲聊它来陪 · 求助你来答 · 回信带着你的脸</div>
+  </div>
+  <div class="fan">
+    <div class="phone ph1"><div class="screen"><div class="island"></div><img src="raw/c2-inbox.png"></div></div>
+    <div class="phone ph2"><div class="screen"><div class="island"></div><img src="raw/p2-home.png"></div></div>
+    <div class="phone ph3"><div class="screen"><div class="island"></div><img src="raw/p4-letter.png"></div></div>
+  </div>
+</div>
+
+<script>
+// 星空（每个竖版 stage 随机撒星，種子固定保证可复现）
+let seed = 7;
+function rnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+document.querySelectorAll('.stage').forEach(st => {
+  const w = st.classList.contains('banner') ? 2800 : 1290;
+  for (let i = 0; i < 26; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = 3 + rnd() * 6;
+    s.style.cssText = `width:${size}px;height:${size}px;left:${rnd() * w}px;top:${rnd() * 900}px;opacity:${.35 + rnd() * .5}`;
+    st.insertBefore(s, st.children[1]);
+  }
+});
+
+// ?slide=N 显示指定页；自适应缩放到视口（导出时视口=画布一半 + DPR2 即得原尺寸）
+const q = new URLSearchParams(location.search).get('slide') || '1';
+const stage = document.querySelector(`[data-slide="${q}"]`) || document.querySelector('[data-slide="1"]');
+stage.classList.add('active');
+function fit() {
+  const W = stage.classList.contains('banner') ? 2800 : 1290;
+  const H = stage.classList.contains('banner') ? 1575 : 2796;
+  const k = Math.min(innerWidth / W, innerHeight / H);
+  stage.style.transform = `scale(${k})`;
+  stage.style.left = ((innerWidth - W * k) / 2) + 'px';
+  stage.style.top = ((innerHeight - H * k) / 2) + 'px';
+}
+fit(); addEventListener('resize', fit);
+</script>
+</body>
+</html>

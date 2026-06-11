@@ -27,3 +27,5 @@ public/avatars/
 # Vue 构建产物（npm run build 产出，不进库）
 dist/
 docs/*-单文件版.html
+docs/marketing/raw/
+docs/marketing/appstore/
