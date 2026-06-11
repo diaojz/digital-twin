@@ -51,7 +51,7 @@ ollama serve                          # 本地 LLM（关代理/VPN，否则 1143
 
 子女建分身 + 配话术 → 把链接发父母；父母聊天/求助 → 子女用原声回 → 父母收对口型回信视频。新增后端模块（各司一职）：
 
-- `family.js`：家庭数据模型（`data/family.db`，可用 `FAMILY_DB` 覆盖）——family/member/inbox_message/quota_usage 四表 + 启动 seed 单家庭；**双口令角色中间件 `authMiddleware()`**（替换原 `ACCESS_CODE` 块）：`?code=`/cookie `twin_code` → `resolveMemberByCode` 解析出 `req.member={id,familyId,role}`，无效 401；裸跑（无任何 code）默认 child，按 `X-Twin-Role` 头切 parent。`CHILD_CODE` 缺省回落 `ACCESS_CODE` 再回落 `'dev-child'`，`PARENT_CODE` 缺省 `'dev-parent'`
+- `family.js`：家庭数据模型（`data/family.db`，可用 `FAMILY_DB` 覆盖）——family/member/inbox_message/quota_usage 四表 + 启动 seed 单家庭；**双口令角色中间件 `authMiddleware()`**（替换原 `ACCESS_CODE` 块）：`?code=`/cookie `twin_code` → `resolveMemberByCode` 解析出 `req.member={id,familyId,role}`，无效 401；裸跑（无任何 code）默认 child，按 `X-Twin-Role` 头切 parent。`CHILD_CODE` 缺省回落 `ACCESS_CODE` 再回落 `'dev-child'`；`PARENT_CODE` 仅裸跑时缺省 `'dev-parent'`——**口令模式下未显式设置则随机生成并打印启动日志**（防 `?code=dev-parent` 被猜中，安全修复 dd3c5dd）
 - `inbox.js`：收件箱状态机——`pending（待回复）→ generating（生成中）→ delivered（视频）/ voice_delivered（语音降级）→ viewed（已查看）`，非法迁移 throw；`scanReminders()` 由 server 每 10min 跑一次，pending 超 4h 自动标提醒
 - `intent.js`：意图分类（qwen3-max 非流式 + 10s 超时，只输出 JSON，失败/超时一律回落 `chat` 不阻塞主链路）+ 求助类 system prompt（给初步答案 + 结尾「我再帮你问问本人」+ 医疗/转账/验证码硬拒答转真人）
 - `quota.js` + `speak-templates.js`：额度护栏（按家庭+自然月累计视频秒数，cap 来自 `QUOTA_VIDEO_SECONDS` 默认 300，超额 `checkQuota` 不过）+ 初始话术包（10 条模板：问候×4 / 关心×3 / 想念×2 / 欢迎视频×1）
