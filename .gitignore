@@ -29,3 +29,7 @@ dist/
 docs/*-单文件版.html
 docs/marketing/raw/
 docs/marketing/appstore/
+
+# 本地工具产物
+.claude/worktrees/
+.claude/workflows/
