@@ -81,7 +81,9 @@ ollama serve                          # 本地 LLM（关代理/VPN，否则 1143
 
 ## 部署
 
-线上演示：新加坡服务器（`ssh hk`/`ssh sg` 同指一台；**2026-07-03 从香港旧机全量迁来**，`ssh hk` 命令仍有效）`~/digital-twin`，systemd 服务 `digital-twin`，caddy 反代 `https://twin.chengbei.org`（DNS 在 Cloudflare，灰云直连）。公网保护**双口令**：`ACCESS_CODE`/`CHILD_CODE`=子女端口令、`PARENT_CODE`=父母端口令（`?code=口令` 一次后种 30 天 cookie；换口令=改 `.env` + `sudo systemctl restart digital-twin`，或子女端「家庭」页在线换）。线上 ASR 用 dashscope。同步：`ssh hk 'cd ~/digital-twin && git pull && npm run build && sudo systemctl restart digital-twin'`。⚠️ 日本服务器（aigw）跑着 gw.diaoye.org 关键服务，禁止部署新东西。
+**⚠️ 2026-11-22 线上演示已下线**：服务、Caddy 站点、`twin.chengbei.org` DNS 均已删除，代码+`data/`+`.env` 备份在中控 `/home/ubuntu/backups/old-projects-20261122/digital-twin.tgz`。以下为下线前的部署记录，重新上线时参考。
+
+原线上演示：新加坡服务器（`ssh hk`/`ssh sg` 同指一台；**2026-07-03 从香港旧机全量迁来**，`ssh hk` 命令仍有效）`~/digital-twin`，systemd 服务 `digital-twin`，caddy 反代 `https://twin.chengbei.org`（DNS 在 Cloudflare，灰云直连）。公网保护**双口令**：`ACCESS_CODE`/`CHILD_CODE`=子女端口令、`PARENT_CODE`=父母端口令（`?code=口令` 一次后种 30 天 cookie；换口令=改 `.env` + `sudo systemctl restart digital-twin`，或子女端「家庭」页在线换）。线上 ASR 用 dashscope。同步：`ssh hk 'cd ~/digital-twin && git pull && npm run build && sudo systemctl restart digital-twin'`。⚠️ 日本服务器（aigw）跑着 gw.diaoye.org 关键服务，禁止部署新东西。
 
 ## 不进库的本地数据
 
