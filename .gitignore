@@ -33,3 +33,11 @@ docs/marketing/appstore/
 # 本地工具产物
 .claude/worktrees/
 .claude/workflows/
+
+# 个人信息（不入库）：真实账号/邮箱等放 .private/，文档里只写占位
+.private/
+*.local.md
+.env
+.env.*
+!.env.example
+*.pem
